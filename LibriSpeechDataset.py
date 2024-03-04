@@ -192,12 +192,12 @@ class LibriSpeechMixingLoader:
             self.sampleEmbed = list(map(lambda x: self.data.getRandomSegmentBySpeaker(2,int(x)),
                                         self.permutation[self.idx]))
             self.sampleEmbed = torch.cat(self.sampleEmbed,dim=0)
-        data = [self.__getGroupData(self.windowStart+i*self.sampleRate*(self.audioLength-2)) for i in range(self.batch) if not self.reachend]
+        data = [self.__getGroupData(self.windowStart+i*self.sampleRate*(self.audioLength*0.5)) for i in range(self.batch) if not self.reachend]
         o = {}
         o['mixing'] = torch.stack([i['mixing'] for i in data])
         o['audio'] = torch.cat([i['audio'] for i in data],dim=0)
         o['vocal_sample'] = torch.cat([self.sampleEmbed]*len(o['mixing']),dim=0)
-        self.windowStart=self.windowStart+self.batch*self.sampleRate*(self.audioLength-2)
+        self.windowStart=self.windowStart+self.batch*self.sampleRate*(self.audioLength*0.5)
         if self.windowStart >= self.audioStore.shape[1]  - self.sampleRate*self.audioLength*2: ##*2 for no reason :))
             self.reachend = True
         if self.reachend:

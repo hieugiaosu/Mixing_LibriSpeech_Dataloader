@@ -2,3 +2,4 @@ test.json
 exploreData.ipynb
 train-clean-100/
 __pycache__
+model
