@@ -117,10 +117,12 @@ class MaskOut(nn.Module):
     def forward(self,x):
         if np.random.uniform(0,1)>self.p:
             return x
+        num_voice = x.shape[0]
+        voice = torch.tensor(np.random.permutation(num_voice)[:np.random.randint(1,num_voice+1)]).long()
         masklen = int(np.random.randint(int(self.maxlen/2),self.maxlen+1))
         start = int(np.random.randint(0,x.shape[1]-masklen))
         mask = torch.ones_like(x)
-        mask[:,start:start+masklen] = 0 
+        mask[voice,start:start+masklen] = 0 
         mask = mask.float()
         return x*mask
 class Augmentation:
