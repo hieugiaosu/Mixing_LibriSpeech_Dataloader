@@ -160,10 +160,10 @@ class LibriSpeechMixingLoader:
         self.reachend = False
         return self
     def __getGroupData(self,startwindow):
-        if startwindow > self.audioStore.shape[1] - self.sampleRate*self.audioLength:
+        if startwindow > self.audioStore.shape[1] - int(self.sampleRate*self.audioLength):
             self.reachend = True
-            startwindow = self.audioStore.shape[1] - self.sampleRate*self.audioLength
-        audio = self.audioStore[:,startwindow:startwindow+self.sampleRate*self.audioLength]
+            startwindow = self.audioStore.shape[1] - int(self.sampleRate*self.audioLength)
+        audio = self.audioStore[:,startwindow:startwindow+int(self.sampleRate*self.audioLength)]
         audio = self.transform(audio)
         return {"mixing": torch.mean(audio,dim=0),"audio":audio}
 
@@ -189,16 +189,17 @@ class LibriSpeechMixingLoader:
                     dim=1
                     ), self.audioStore))
             self.audioStore = torch.cat(self.audioStore,dim=0)
-            self.sampleEmbed = list(map(lambda x: self.data.getRandomSegmentBySpeaker(2,int(x)),
+            self.sampleEmbed = list(map(lambda x: self.data.getRandomSegmentBySpeaker(self.speakerEmbeddingLength,int(x)),
                                         self.permutation[self.idx]))
             self.sampleEmbed = torch.cat(self.sampleEmbed,dim=0)
-        data = [self.__getGroupData(self.windowStart+i*self.sampleRate*(self.audioLength*0.5)) for i in range(self.batch) if not self.reachend]
+        data = [self.__getGroupData(self.windowStart+i*self.sampleRate*int(self.audioLength*0.5)) for i in range(self.batch) if not self.reachend]
         o = {}
         o['mixing'] = torch.stack([i['mixing'] for i in data])
         o['audio'] = torch.cat([i['audio'] for i in data],dim=0)
         o['vocal_sample'] = torch.cat([self.sampleEmbed]*len(o['mixing']),dim=0)
-        self.windowStart=self.windowStart+self.batch*self.sampleRate*(self.audioLength*0.5)
-        if self.windowStart >= self.audioStore.shape[1]  - self.sampleRate*self.audioLength*2: ##*2 for no reason :))
+        o['speaker_id'] = torch.cat([torch.tensor(self.permutation[self.idx])]*len(o['mixing']),dim=0).long()
+        self.windowStart=self.windowStart+self.batch*self.sampleRate*int(self.audioLength*0.5)
+        if self.windowStart >= self.audioStore.shape[1]  - int(self.sampleRate*self.audioLength)*2: ##*2 for no reason :))
             self.reachend = True
         if self.reachend:
             self.segmentIdx+=1
