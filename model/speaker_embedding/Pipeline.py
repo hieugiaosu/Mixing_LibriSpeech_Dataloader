@@ -12,25 +12,27 @@ from Ultils.data.AdjustBatch import BatchLibriMixLoader
 from Ultils.training.LossControl import LossLogger
 
 class TrainForwardPipeline:
-    def __init__(self,model,name,checkPointRoot,using_gpu=False,**optimizer_args):
+    def __init__(self,model,name,checkPointRoot,using_gpu=False,default_device ='cpu',**optimizer_args):
         self.model = model 
         self.checkPointRoot = checkPointRoot
         if checkPointRoot[-1] != '/': self.checkPointRoot+='/'
         self.optimizer = optim.AdamW(self.model.parameters(),**optimizer_args)
         self.name = name
-        self.device = 'cpu'
+        self.device = default_device
         self.multi = False
         if using_gpu:
             if not torch.cuda.is_available():
                 warnings.warn("using gpu is on but there aren't any available cuda so the model will run on cpu")
-            elif torch.cuda.device_count() >= 2:
-                self.model = nn.DataParallel(self.model)
-                self.model.to('cuda')
-                self.device = 'cuda'
-                self.multi = True
+            # elif torch.cuda.device_count() >= 2:
+            #     self.model = nn.DataParallel(self.model)
+            #     self.model.to('cuda')
+            #     self.device = 'cuda'
+            #     self.multi = True
             else:
-                self.model.to('cuda')
-                self.device = 'cuda'
+                if self.device == 'cpu':
+                    self.device = 'cuda'
+                self.model.to(self.device)
+                
         self.model.train()
         self.lossfn = Module.EmbeddingLoss()
     def saveCheckPoint(self):

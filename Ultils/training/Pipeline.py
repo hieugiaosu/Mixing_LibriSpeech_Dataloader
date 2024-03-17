@@ -17,13 +17,13 @@ class TrainPipeline:
                  s_model,s_name,s_checkPointRoot, s_lossLogRoot,
                  batch_size,epoch,data,alpha = 0.2,
                  using_gpu=False,checkPointRate = 1000,state=None,timeLimit=None,
-                 e_optimizer_args={},s_optimizer_args={}):
+                 e_optimizer_args={},s_optimizer_args={},multi_gpu=False):
         if state is not None: np.random.seed(state)
         self.timeLimit = timeLimit
         self.alpha = alpha
         self.e_lossLogger = LossLogger(rootPath=e_lossLogRoot)
         self.s_lossLogger = LossLogger(rootPath=s_lossLogRoot)
-        data.batch = 8
+        data.batch = 4
         self.batch_size = batch_size
         self.mixing_batch = batch_size//data.num
         self.loader = BatchLibriMixLoader(data,batch_size,data.num)

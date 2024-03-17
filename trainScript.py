@@ -23,7 +23,7 @@ s_model = DualBlockBaseModel(10,512,64,65,4)
 pipeline = TrainPipeline(e_model,"speaker_embedding","model/speaker_embedding/model-weights/",
                          "model/speaker_embedding/train_log/",inputConfig,s_model,
                          'speech_sep','model/seperate_speech/model-weight/',
-                         'model/seperate_speech/train_log/',32,100,datasetLibri,
+                         'model/seperate_speech/train_log/',12,100,datasetLibri,
                          state=14022003,using_gpu=True
                          )
 pipeline.train()
