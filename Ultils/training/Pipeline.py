@@ -10,14 +10,16 @@ import torch
 import gc
 import warnings
 from einops import rearrange
+import time
 
 class TrainPipeline:
     def __init__(self,e_model,e_name,e_checkPointRoot,e_lossLogRoot,e_inputConfig,
                  s_model,s_name,s_checkPointRoot, s_lossLogRoot,
                  batch_size,epoch,data,alpha = 0.2,
-                 using_gpu=False,checkPointRate = 1000,state=None,
+                 using_gpu=False,checkPointRate = 1000,state=None,timeLimit=None,
                  e_optimizer_args={},s_optimizer_args={}):
         if state is not None: np.random.seed(state)
+        self.timeLimit = timeLimit
         self.alpha = alpha
         self.e_lossLogger = LossLogger(rootPath=e_lossLogRoot)
         self.s_lossLogger = LossLogger(rootPath=s_lossLogRoot)
@@ -33,6 +35,7 @@ class TrainPipeline:
         self.e_inputConfig = e_inputConfig
     def train(self):
         device = self.e_modelControl.getDevice()
+        start_time = time.time() if self.timeLimit is not None else None
         count = 0
         stop = False
         for epoch in range(self.epoch):
@@ -68,6 +71,23 @@ class TrainPipeline:
                 del loss,e_o,s_o,e_label,s_label,e_input,s_input
                 torch.cuda.empty_cache()
                 gc.collect()
+                if self.timeLimit:
+                    spend_time = time.time() - start_time 
+                    if spend_time > self.timeLimit:
+                        if self.s_lossLogger.check():
+                            self.e_modelControl.saveCheckPoint()
+                            self.s_modelControl.saveCheckPoint()
+                            self.countFalse = 0
+                        else: 
+                            self.countFalse += 1
+                            if self.countFalse == 3:
+                                stop = True 
+                                warnings.warn("early stopping because out of time")
+                                break
+                        stop = True 
+                        warnings.warn("early stopping because out of time")
+                        break
+                        
                 if count % self.checkPointRate == 0:
                     if self.s_lossLogger.check():
                         self.e_modelControl.saveCheckPoint()
