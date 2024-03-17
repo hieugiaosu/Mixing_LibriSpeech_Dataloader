@@ -40,22 +40,26 @@ class LibriSpeech(metaclass=Singleton):
         else: 
             self.ignore_chapter = True 
     def __getitem__(self,idx:tuple):
-        if len(idx)==2:
-            speaker,segment = idx 
-            chapter=None
-        else:
-            speaker,segment,chapter=idx
-        if not self.ignore_chapter:
-            assert chapter is not None, "your file structure need to use chapter"
-            url = self.data['speakers'][str(speaker)]['chapters'][str(chapter)]['segments'][str(segment)]
-        else: 
-            url = self.data[str(speaker)][str(segment)]
-        waveform,rate = torchaudio.load(url)
-        if rate != self.sample_rate:
-            waveform = F.resample(waveform, rate, self.sample_rate)
-        if self.return_type == 'np':
-            waveform = waveform.numpy()
-        return waveform
+        try:
+            if len(idx)==2:
+                speaker,segment = idx 
+                chapter=None
+            else:
+                speaker,segment,chapter=idx
+            if not self.ignore_chapter:
+                assert chapter is not None, "your file structure need to use chapter"
+                url = self.data['speakers'][str(speaker)]['chapters'][str(chapter)]['segments'][str(segment)]
+            else: 
+                url = self.data[str(speaker)][str(segment)]
+            waveform,rate = torchaudio.load(url)
+            if rate != self.sample_rate:
+                waveform = F.resample(waveform, rate, self.sample_rate)
+            if self.return_type == 'np':
+                waveform = waveform.numpy()
+            return waveform
+        except Exception as e: 
+            print(e)
+            return torch.zeros((1,16000))
     def getAudio(self,speaker,segment,chapter=None):
         return self.__getitem__((speaker,segment,chapter))
     def getSpeakerList(self):
