@@ -147,5 +147,5 @@ class SI_SDRLoss(nn.Module):
         alpha = term1/(term2+1e-6) 
         term3 = alpha.unsqueeze(1)*label-input
         term4 = torch.bmm(term3.unsqueeze(1),term3.unsqueeze(2)).squeeze() + 1e-6
-        loss = -10*torch.log10((alpha**2)*term2/term4)
+        loss = -10*torch.log10(((alpha**2)*term2 + 1e-6)/term4)
         return loss.mean(0)
