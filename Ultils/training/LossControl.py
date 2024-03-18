@@ -14,8 +14,8 @@ class LossLogger:
         loss = float(loss)
         self.loss.append(loss)
     def check(self):
-        if len(self.loss)>10:
-            loss = float(np.mean(self.loss[-10:]))
+        if len(self.loss)>100:
+            loss = float(np.mean(self.loss[-100:]))
         else: 
             loss = self.loss[-1]
         if loss < self.minLoss: 

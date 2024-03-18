@@ -21,8 +21,8 @@ class TrainPipeline:
         if state is not None: np.random.seed(state)
         self.timeLimit = timeLimit
         self.alpha = alpha
-        self.e_lossLogger = LossLogger(rootPath=e_lossLogRoot)
-        self.s_lossLogger = LossLogger(rootPath=s_lossLogRoot)
+        self.e_lossLogger = LossLogger(capacity=1100,rootPath=e_lossLogRoot)
+        self.s_lossLogger = LossLogger(capacity=1100,rootPath=s_lossLogRoot)
         data.batch = 4
         self.batch_size = batch_size
         self.mixing_batch = batch_size//data.num
@@ -65,7 +65,7 @@ class TrainPipeline:
                 self.s_lossLogger.log(s_o['loss'].cpu().detach().item())
                 print("-"*10)
                 print(f'epoch: {epoch}------ iteration: {count}')
-                print(f"embeding_loss: {e_o['loss'].detach().item()}\nSeprate speech loss (MSE): {s_o['loss'].detach().item()}")
+                print(f"embeding_loss: {e_o['loss'].detach().item()}\nSeprate speech loss (SI-SDR): {s_o['loss'].detach().item()}")
                 print(f"total_loss: {loss.detach().item()}")
                 print("-"*10)
                 del loss,e_o,s_o,e_label,s_label,e_input,s_input
