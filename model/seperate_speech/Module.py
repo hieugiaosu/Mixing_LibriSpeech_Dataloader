@@ -142,9 +142,10 @@ class SI_SDRLoss(nn.Module):
             ## now is (B,S,L)
             input = rearrange(input,"b s l -> (b s) l")
             label = rearrange(label,"b s l -> (b s) l")
-        term1 = torch.sum(input*label,dim=-1)
-        term2 = torch.sum(label*label,dim=-1)
+        term1 = torch.bmm(input.unsqueeze(1),label.unsqueeze(2)).squeeze()
+        term2 = torch.bmm(label.unsqueeze(1),label.unsqueeze(2)).squeeze()
         alpha = term1/(term2+1e-6) 
-        term3 = torch.sum((alpha.unsqueeze(1)*label-input)**2) + 1e-6
-        loss = (alpha**2)*term2/term3
+        term3 = alpha.unsqueeze(1)*label-input
+        term4 = torch.bmm(term3.unsqueeze(1),term3.unsqueeze(2)).squeeze() + 1e-6
+        loss = -10*torch.log10((alpha**2)*term2/term4)
         return loss.mean(0)
