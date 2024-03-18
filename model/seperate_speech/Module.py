@@ -122,3 +122,29 @@ class DualBlockBaseModel(nn.Module):
             l_i = F.tanh(l_i + l_o)
             l_o = self.block[idx](l_i,e,reshape_input = False,reshape_output = (idx == len(self.block)-1),batch=batch)
         return l_o
+
+class SI_SDRLoss(nn.Module):
+    '''num batch dim is how many dim in tensor is a batch. 
+    for example input can be (B,L) with batch is batch size and L is audio Length
+    or it can be: (B,S,L) with batch is batch size, S is number of speaker in each
+    batch and L is audio Length.
+    For this version, I only support those kind of shape. So numBatchDim is only
+    2 or 3
+    '''
+    def __init__(self,numBatchDim:int=2 ,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        assert numBatchDim == 2 or numBatchDim == 3, "only support 2 or 3"
+        self.numBatchDim = numBatchDim
+    def forward(self,input,label):
+        assert input.shape == label.shape, "2 input of loss function must have the same shape"
+        assert input.dim() == self.numBatchDim, f"numBatchDim is set to {self.numBatchDim} but get {input.shape} tensor as a input"
+        if self.numBatchDim == 3:
+            ## now is (B,S,L)
+            input = rearrange(input,"b s l -> (b s) l")
+            label = rearrange(label,"b s l -> (b s) l")
+        term1 = torch.sum(input*label,dim=-1)
+        term2 = torch.sum(label*label,dim=-1)
+        alpha = term1/(term2+1e-6) 
+        term3 = torch.sum((alpha.unsqueeze(1)*label-input)**2) + 1e-6
+        loss = (alpha**2)*term2/term3
+        return loss.mean(0)
