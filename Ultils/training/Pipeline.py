@@ -72,7 +72,7 @@ class TrainPipeline:
                 print(f"embeding_loss: {e_o['loss'].detach().item()}\nSeprate speech loss (SI-SDR): {s_o['loss'].detach().item()}")
                 print(f"total_loss: {loss.detach().item()}")
                 print("-"*10)
-                del loss,e_o,s_o,e_label,s_label,e_input,s_input
+                del loss,e_o,s_o,e_label,s_label,e_input,s_input, data
                 torch.cuda.empty_cache()
                 gc.collect()
                 if self.timeLimit:
