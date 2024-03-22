@@ -14,7 +14,7 @@ import time
 
 class TrainPipeline:
     def __init__(self,e_model,e_name,e_checkPointRoot,e_lossLogRoot,e_inputConfig,
-                 s_model,s_name,s_checkPointRoot, s_lossLogRoot,
+                 s_model,s_name,s_checkPointRoot, s_lossLogRoot,s_inputConfig,
                  batch_size,epoch,data,alpha = 0.2,
                  using_gpu=False,checkPointRate = 1000,state=None,timeLimit=None,
                  e_optimizer_args={},s_optimizer_args={},multi_gpu=False):
@@ -33,6 +33,7 @@ class TrainPipeline:
         self.countFalse = 0
         self.checkPointRate = checkPointRate
         self.e_inputConfig = e_inputConfig
+        self.s_inputConfig = s_inputConfig
     def train(self):
         device = self.e_modelControl.getDevice()
         start_time = time.time() if self.timeLimit is not None else None
@@ -48,13 +49,16 @@ class TrainPipeline:
                     e_input[k] = v.to(device)
                 self.e_modelControl.clear_grad()
                 self.s_modelControl.clear_grad()
-                s_input = {}
-                s_input['x'] = data['mixing'].to(device)
-                s_label = rearrange(data['audio'],"(b s) l -> b s l",b=self.mixing_batch)
+                # s_input = {}
+                # s_input['x'] = data['mixing'].to(device)
+                # s_label = rearrange(data['audio'],"(b s) l -> b s l",b=self.mixing_batch)
+                s_label = data["audio"]
                 s_label = s_label.to(device)
                 e_o = self.e_modelControl(e_input,e_label)
-                s_input['e'] = e_o['output']
-
+                # s_input['e'] = e_o['output']
+                s_input = self.s_inputConfig(e_input,e_o,data)
+                for k,v in s_input.items():
+                    s_input[k] = v.to(device)
                 s_o = self.s_modelControl(s_input,s_label)
                 loss = s_o['loss'] + self.alpha*e_o['loss']
                 loss.backward()

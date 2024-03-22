@@ -29,7 +29,7 @@ class TrainForwardPipeline:
                     self.device = 'cuda'
                 self.model.to(self.device)
         self.model.train()
-        self.lossfn = Module.SI_SDRLoss(3)
+        self.lossfn = Module.SI_SDRLoss(2)
     def saveCheckPoint(self):
         torch.save(self.optimizer.state_dict(),f"{self.checkPointRoot}{self.name}_optimizer.pth")
         torch.save(self.model.state_dict() if not self.multi else self.model.module.state_dict(),
