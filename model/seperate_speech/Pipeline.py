@@ -42,7 +42,7 @@ class TrainForwardPipeline:
         self.optimizer.zero_grad()
 
     def __call__(self,data:dict,label):
-        o = self.model(**data)
+        o = self.model(**data).squeeze()
         loss = self.lossfn(o,label).mean()
         return {"output":o,"loss":loss}
     
