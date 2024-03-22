@@ -58,7 +58,8 @@ class TrainPipeline:
                 # s_input['e'] = e_o['output']
                 s_input = self.s_inputConfig(e_input,e_o,data)
                 for k,v in s_input.items():
-                    s_input[k] = v.to(device)
+                    if v.device != device:
+                        s_input[k] = v.to(device)
                 s_o = self.s_modelControl(s_input,s_label)
                 loss = s_o['loss'] + self.alpha*e_o['loss']
                 loss.backward()
