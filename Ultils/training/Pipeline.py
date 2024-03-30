@@ -27,8 +27,8 @@ class TrainPipeline:
         self.batch_size = batch_size
         self.mixing_batch = batch_size//data.num
         self.loader = BatchLibriMixLoader(data,batch_size,data.num)
-        self.e_modelControl = emb.TrainForwardPipeline(e_model,e_name,e_checkPointRoot,using_gpu,**e_optimizer_args)
-        self.s_modelControl = sep.TrainForwardPipeline(s_model,s_name,s_checkPointRoot,using_gpu,**s_optimizer_args)
+        self.e_modelControl = emb.TrainForwardPipeline(e_model,e_name,e_checkPointRoot,using_gpu,multi_gpu=multi_gpu,**e_optimizer_args)
+        self.s_modelControl = sep.TrainForwardPipeline(s_model,s_name,s_checkPointRoot,using_gpu,multi_gpu=multi_gpu,**s_optimizer_args)
         self.epoch = epoch
         self.countFalse = 0
         self.checkPointRate = checkPointRate

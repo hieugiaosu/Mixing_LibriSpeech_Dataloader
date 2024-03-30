@@ -133,10 +133,11 @@ class SpeakerEmbedding(nn.Module):
             o = decoder(o,encoder_o)
         
         o = self.lastTransform(o)
-        o = torch.transpose(o,1,2)
-        o = o.mean(dim=2)
-        o = self.tanh(o)
-        return o
+        lastHidden = o 
+        pool = torch.transpose(o,1,2)
+        pool = pool.mean(dim=2)
+        pool = self.tanh(pool)
+        return {"last_hidden":lastHidden,"output":pool}
 class EmbeddingLoss(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

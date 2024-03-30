@@ -8,7 +8,7 @@ sys.path.append('../')
 sys.path.append('../../')
 
 class TrainForwardPipeline:
-    def __init__(self,model,name,checkPointRoot,using_gpu=False,default_device ='cpu',**optimizer_args):
+    def __init__(self,model,name,checkPointRoot,using_gpu=False,default_device ='cpu',multi_gpu=False,**optimizer_args):
         self.model = model 
         self.checkPointRoot = checkPointRoot
         if checkPointRoot[-1] != '/': self.checkPointRoot+='/'
@@ -19,11 +19,11 @@ class TrainForwardPipeline:
         if using_gpu:
             if not torch.cuda.is_available():
                 warnings.warn("using gpu is on but there aren't any available cuda so the model will run on cpu")
-            # elif torch.cuda.device_count() >= 2:
-            #     self.model = nn.DataParallel(self.model)
-            #     self.model.to('cuda')
-            #     self.device = 'cuda'
-            #     self.multi = True
+            elif torch.cuda.device_count() >= 2 and multi_gpu:
+                self.model = nn.DataParallel(self.model)
+                self.model.to('cuda')
+                self.device = 'cuda'
+                self.multi = True
             else:
                 if self.device == 'cpu':
                     self.device = 'cuda'

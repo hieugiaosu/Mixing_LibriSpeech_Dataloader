@@ -150,15 +150,6 @@ class SI_SDRLoss(nn.Module):
         loss = -10*torch.log10(((alpha**2)*term2 + 1e-6)/term4)
         return loss.mean(0)
 
-
-class AttentionGate(nn.Module):
-    def __init__(self,inputDim,outputDim ,*args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.transform = nn.Linear(inputDim,outputDim)
-    def forward(self,q,k,v):
-        q_i = self.transform(q)
-        att = v*F.tanh(torch.bmm(q_i.unsqueeze(1),k))
-        return att
 class EfficientAttention(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)    
@@ -187,87 +178,122 @@ class Conv1dBlock(nn.Module):
     def forward(self,x):
         return self.block(x)
 class UnitBlock(nn.Module):
-    def __init__(self,inChannel, outChannel,inputLength ,melShape,embedingDim ,*args, **kwargs) -> None:
+    def __init__(self,inChannel, outChannel,inputLength ,embHiddenChannel=171,embedingDim=512 ,*args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.audioTransform = Conv1dBlock(
             inChannel,
             (outChannel+inChannel)//2,
             outChannel,inputLength//100 + 1,
             )
-        self.melTransform = Conv1dBlock(
-            melShape[0],
-            (outChannel+melShape[0])//2,
-            outChannel,17
+        self.embTransform = Conv1dBlock(
+            embHiddenChannel,
+            (outChannel+embHiddenChannel)//2,
+            outChannel,1
         )
-        self.qExtract = nn.Sequential(
+        self.qExtract1 = nn.Sequential(
             nn.Conv1d(outChannel,outChannel,inputLength//100,stride=inputLength//100),
             nn.ELU(),
-            nn.Linear(100,melShape[1])
+            nn.Linear(100,embedingDim)
         )
-        self.crossAttention = EfficientAttention()
-        self.layerNorm1 = nn.LayerNorm((outChannel,inputLength))
-        self.layerNorm2 = nn.LayerNorm((outChannel,inputLength))
+        self.vExtract1 = nn.Conv1d(outChannel,outChannel,1)
+        self.crossAttention1 = EfficientAttention()
+        self.layerNorm = nn.LayerNorm((outChannel,inputLength))
         self.convLayer = Conv1dBlock(outChannel,outChannel,outChannel,inputLength//100 + 1)
-        self.attentionGate = AttentionGate(embedingDim,outChannel)
-    def forward(self,audio,mel,emb):
+        self.qExtract2 = nn.Sequential(
+            nn.Conv1d(outChannel,outChannel,inputLength//100,stride=inputLength//100),
+            nn.ELU(),
+            nn.Linear(100,embedingDim)
+        )
+        self.vExtract2 = nn.Conv1d(outChannel,outChannel,1)
+        self.crossAttention2 = EfficientAttention()
+    def forward(self,audio,emb_hidden):
         audio_i = self.audioTransform(audio)
-        mel_i = self.melTransform(mel)
-        q = self.qExtract(audio_i)
-
-        att = self.crossAttention(q=q,k=mel_i,v=audio_i)
-        h = self.layerNorm1(att+audio_i)
-        o = self.convLayer(h)
-        o = self.layerNorm2(h+o)
-        o = self.attentionGate(q=emb,k=o,v=o)
-        return o
-
+        emb_i = self.embTransform(emb_hidden)
+        q1 = self.qExtract1(audio_i)
+        v1 = self.vExtract1(audio_i)
+        att = self.crossAttention1(q=q1,k=emb_i,v=v1)
+        o = self.convLayer(att)
+        o = self.layerNorm(att+o)
+        q2 = self.qExtract1(o)
+        v2 = self.vExtract1(o)
+        output = self.crossAttention2(q=q2,k=emb_i,v=v2)
+        return output
+class FiLMBlock(nn.Module):
+    def __init__(self,inDim, outFiLMFeatures,transform ,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.model = nn.Sequential(
+            nn.Linear(inDim,outFiLMFeatures*2),
+            nn.ELU(),
+            nn.Linear(outFiLMFeatures*2,outFiLMFeatures*2)
+        )
+        self.filmFeature = outFiLMFeatures
+        self.transform = transform
+    def forward(self,condition,*args,**kwwargs):
+        film =self.model(condition)
+        gamma = film[:,:self.filmFeature]
+        beta = film[:,self.filmFeature:]
+        y = self.transform(*args,**kwwargs)
+        return gamma[:,:,None]*y+beta[:,:,None]
 class AEBaseModel(nn.Module):
-    def __init__(self,inputLength ,melShape,embedingDim, *args, **kwargs) -> None:
+    def __init__(self,inputLength ,embHiddenChannel=171,embedingDim=512, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.left = nn.ModuleList([
-            UnitBlock(1,128,inputLength,melShape,embedingDim),
-            UnitBlock(128,256,inputLength//4,melShape,embedingDim),
-            UnitBlock(256,512,inputLength//16,melShape,embedingDim)
+            UnitBlock(1,128,inputLength,embHiddenChannel,embedingDim),
+            UnitBlock(128,256,inputLength//4,embHiddenChannel,embedingDim),
+            UnitBlock(256,512,inputLength//16,embHiddenChannel,embedingDim)
         ])
         self.right = nn.ModuleList([
-            UnitBlock(512,256,inputLength//16,melShape,embedingDim),
-            UnitBlock(256,128,inputLength//4,melShape,embedingDim),
-            UnitBlock(128,128,inputLength,melShape,embedingDim)
+            UnitBlock(512,256,inputLength//16,embHiddenChannel,embedingDim),
+            UnitBlock(256,128,inputLength//4,embHiddenChannel,embedingDim),
+            UnitBlock(128,128,inputLength,embHiddenChannel,embedingDim)
         ])
+        self.beforLast = FiLMBlock(embedingDim,128,nn.Sequential(
+            nn.Conv1d(128,128,1),
+            nn.ELU()
+        ))
         self.lastLayer = nn.Sequential(
             nn.Conv1d(128,128,inputLength//100+1,padding="same"),
             nn.ELU(),
             nn.Conv1d(128,1,inputLength//100+1,padding="same"),
             nn.Tanh()
         )
-        self.downSample = nn.ModuleList([nn.AvgPool1d(4),nn.AvgPool1d(4)])
-        self.upSample = nn.ModuleList([nn.ConvTranspose1d(256,256,4,stride=4),nn.ConvTranspose1d(128,128,4,stride=4)])
+        self.downSample = nn.ModuleList([
+            FiLMBlock(embedingDim,128,nn.AvgPool1d(4)),
+            FiLMBlock(embedingDim,256,nn.AvgPool1d(4))
+            ])
+        self.middle = FiLMBlock(embedingDim,512,nn.Conv1d(512,512,1))
+        self.upSample = nn.ModuleList([
+            FiLMBlock(embedingDim,256,nn.ConvTranspose1d(256,256,4,stride=4)),
+            FiLMBlock(embedingDim,128,nn.ConvTranspose1d(128,128,4,stride=4))
+            ])
         self.norm = nn.ModuleList([
             nn.LayerNorm([256,inputLength//16]),
             nn.LayerNorm([256,inputLength//4]),
             nn.LayerNorm([128,inputLength]),
             ])
-    def forward(self,audio,mel,emb):
-        l1o = self.left[0](audio,mel,emb)
-        l2i = self.downSample[0](l1o)
-        l2o = self.left[1](l2i,mel,emb)
-        l3i = self.downSample[1](l2o)
-        l3o = self.left[2](l3i,mel,emb)
-        l4o = self.right[0](l3o,mel,emb)
+    def forward(self,audio,emb_hidden,emb):
+        l1o = self.left[0](audio,emb_hidden)
+        l2i = self.downSample[0](emb,l1o)
+        l2o = self.left[1](l2i,emb_hidden)
+        l3i = self.downSample[1](emb,l2o)
+        l3o = self.left[2](l3i,emb_hidden)
+        l4i = self.middle(emb,l3o)
+        l4o = self.right[0](l4i,emb_hidden)
         l4o = self.norm[0](l4o+l3i)
-        l5i = self.upSample[0](l4o,output_size=l2o.size())
+        l5i = self.upSample[0](emb,l4o,output_size=l2o.size())
         l5i = self.norm[1](l5i+l2o)
-        l5o = self.right[1](l5i,mel,emb)
-        l6i = self.upSample[1](l5o,output_size=l1o.size())
+        l5o = self.right[1](l5i,emb_hidden)
+        l6i = self.upSample[1](emb,l5o,output_size=l1o.size())
         l6i = self.norm[2](l6i+l1o)
-        l6o = self.right[2](l6i,mel,emb)
-        o = self.lastLayer(l6o) 
+        l6o = self.right[2](l6i,emb_hidden)
+        o = self.beforLast(emb,l6o)
+        o = self.lastLayer(o) 
         return o
     
 class AEInputConfigAfterEmbedding:
     def __init__(self) -> None:
         pass
-    def __call__(self,e_input,e_output,audio):
+    def __call__(self,e_output,audio):
         return {"audio": repeat(audio['mixing'],"b l -> (b r) 1 l", r=audio["audio"].shape[0]//audio["mixing"].shape[0]),
-                "mel": e_input['mel'], "emb": e_output['output']
+                "emb_hidden": e_output['last_hidden'], "emb": e_output['output']
                 }

@@ -20,11 +20,11 @@ e_inputConfig = InputConfig(**InputConfig.defaultInitArgs())
 s_inputConfig = sep.AEInputConfigAfterEmbedding()
 e_model = SpeakerEmbedding(e_inputConfig.getAudioShape(),e_inputConfig.getMelShape())
 e_model.load_state_dict(torch.load('model/speaker_embedding/model-weights/speaker_embedding_model.pth',map_location='cpu'))
-s_model = sep.AEBaseModel(2*16000,e_inputConfig.getMelShape(),512)
+s_model = sep.AEBaseModel(32000)
 pipeline = TrainPipeline(e_model,"speaker_embedding","model/speaker_embedding/model-weights/",
                          "model/speaker_embedding/train_log/",e_inputConfig,s_model,
                          'speech_sep','model/seperate_speech/model-weight/',
                          'model/seperate_speech/train_log/',s_inputConfig,12,100,datasetLibri,
-                         state=14022003,using_gpu=True
+                         state=14022003,using_gpu=True,multi_gpu=True
                          )
 pipeline.train()
