@@ -19,7 +19,7 @@ class TrainForwardPipeline:
         self.optimizer = optim.AdamW(self.model.parameters(),**optimizer_args)
         self.name = name
         self.device = default_device
-        self.multi = multi_gpu
+        self.multi = False
         if using_gpu:
             if not torch.cuda.is_available():
                 warnings.warn("using gpu is on but there aren't any available cuda so the model will run on cpu")
