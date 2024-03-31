@@ -34,6 +34,9 @@ class TrainPipeline:
         self.checkPointRate = checkPointRate
         self.e_inputConfig = e_inputConfig
         self.s_inputConfig = s_inputConfig
+    def loadOptimCheckPoint(self,e_path,s_path):
+        self.e_modelControl.loadOptimCheckPoint(e_path)
+        self.s_modelControl.loadOptimCheckPoint(s_path)
     def train(self):
         device = self.e_modelControl.getDevice()
         start_time = time.time() if self.timeLimit is not None else None
@@ -56,7 +59,7 @@ class TrainPipeline:
                 s_label = s_label.to(device)
                 e_o = self.e_modelControl(e_input,e_label)
                 # s_input['e'] = e_o['output']
-                s_input = self.s_inputConfig(e_input,e_o,data)
+                s_input = self.s_inputConfig(e_o,data)
                 for k,v in s_input.items():
                     if v.device != device:
                         s_input[k] = v.to(device)
