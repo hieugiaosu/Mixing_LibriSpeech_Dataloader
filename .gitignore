@@ -3,3 +3,5 @@ exploreData.ipynb
 train-clean-100/
 __pycache__
 testing.ipynb
+model/speaker_embedding/model-weights/*
+model/seperate_speech/model-weight/*
