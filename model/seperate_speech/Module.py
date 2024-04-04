@@ -95,8 +95,8 @@ class UnitBlock(nn.Module):
         att = self.crossAttention1(q=q1,k=emb_i,v=v1)
         o = self.convLayer(att)
         o = self.layerNorm(att+o)
-        q2 = self.qExtract1(o)
-        v2 = self.vExtract1(o)
+        q2 = self.qExtract2(o)
+        v2 = self.vExtract2(o)
         output = self.crossAttention2(q=q2,k=emb_i,v=v2)
         return output
 class FiLMBlock(nn.Module):
