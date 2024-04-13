@@ -189,6 +189,7 @@ class LibriSpeechMixingLoader:
             self.audioStore = list(map(lambda x: self.data[x],
                                                zip(self.permutation[self.idx],self.segmentOrder[:,self.segmentIdx])))
             maxlen = max(map(lambda x: len(x[0]),self.audioStore))
+            maxlen = max(maxlen,16000*3)
             self.audioStore = list(map(
                 lambda x: torch.cat(
                     [x,torch.zeros((1,maxlen-len(x[0])))],

@@ -26,3 +26,6 @@ class BatchLibriMixLoader:
             return self.data
         except StopIteration:
             raise StopIteration()
+        except Exception as e: 
+            print(e)
+            return self.__next__()
