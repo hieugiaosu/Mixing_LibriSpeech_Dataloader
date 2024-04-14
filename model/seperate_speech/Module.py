@@ -411,15 +411,11 @@ class PositionalEncoding(nn.Module):
             pe[:, 1::2] = torch.cos(position * div_term[:-1])
         pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
-        self.batch = 0
-        self.register_buffer('cache',pe)
     def forward(self, x):
         seq_len = x.size(1)
         batch = x.size(0)
-        if self.batch != batch: 
-            self.cache.data = torch.cat([self.pe]*batch,dim=0)
-            self.batch = batch 
-        x = torch.cat((x, self.cache[:,:seq_len,:]), dim=-1)
+        cache= torch.cat([self.pe]*batch,dim=0)
+        x = torch.cat((x, cache[:,:seq_len,:]), dim=-1)
         return x
 
 class TimeFrameCrossAttentionConvformerV2(nn.Module):
