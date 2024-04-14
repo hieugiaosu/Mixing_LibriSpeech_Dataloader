@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import torchaudio.transforms as T 
 from einops import rearrange,repeat
+import math
 from resemblyzer import VoiceEncoder 
 
 class SI_SDRLoss(nn.Module):
@@ -215,7 +216,7 @@ class SpeakerEmbedding:
     def __call__(self,wav ,*args, **kwds):
         return torch.stack(list(map(lambda x: torch.tensor(self.encoder.embed_utterance(x.numpy())),wav)))
 class DownConvBlock(nn.Module):
-    def __init__(self,inChannel,outChannel,signalLength,embedingDim=512, *args, **kwargs) -> None:
+    def __init__(self,inChannel,outChannel,signalLength,embedingDim=512,downWindow=4, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.conv1 = nn.Sequential(
             nn.Conv1d(inChannel,(outChannel+inChannel)//2,33,padding="same"),
@@ -243,7 +244,7 @@ class DownConvBlock(nn.Module):
             nn.SiLU()
         )
         self.skipLinkLayerNorm = nn.LayerNorm([outChannel,signalLength])
-        self.downSampling = nn.AvgPool1d(4)
+        self.downSampling = nn.AvgPool1d(downWindow)
         self.filmDown = FiLMLayer(embedingDim,outChannel,1)
     def forward(self,x,e):
         y1 = self.conv1(x)
@@ -256,9 +257,9 @@ class DownConvBlock(nn.Module):
         y = self.filmDown(y7,e)
         return y
 class UpConvBlock(nn.Module):
-    def __init__(self,inChannel,outChannel,signalLength,embedingDim=512, *args, **kwargs) -> None:
+    def __init__(self,inChannel,outChannel,signalLength,embedingDim=512,upWindow=4, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.upSampling = nn.ConvTranspose1d(inChannel,inChannel,4,stride=4)
+        self.upSampling = nn.ConvTranspose1d(inChannel,inChannel,upWindow,stride=upWindow)
         self.filmUp = FiLMLayer(embedingDim,inChannel,1)
         self.conv1 = nn.Sequential(
             nn.Conv1d(inChannel,(outChannel+inChannel)//2,33,padding="same"),
@@ -393,4 +394,145 @@ class Unet(nn.Module):
         u2 = self.up2(u1+d2,e)
         u3 = self.up3(u2+d1,e)
         y = self.outputLayer(u3)
+        return y
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=512):
+        super(PositionalEncoding, self).__init__()
+        # self.dropout = nn.Dropout(p=0.1)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        if d_model % 2 == 0:
+            pe[:, 1::2] = torch.cos(position * div_term)
+        else: 
+            pe[:, 1::2] = torch.cos(position * div_term[:-1])
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+        self.batch = 0
+        self.register_buffer('cache',pe)
+    def forward(self, x):
+        seq_len = x.size(1)
+        batch = x.size(0)
+        if self.batch != batch: 
+            self.cache.data = torch.cat([self.pe]*batch,dim=0)
+            self.batch = batch 
+        x = torch.cat((x, self.cache[:,:seq_len,:]), dim=-1)
+        return x
+
+class TimeFrameCrossAttentionConvformerV2(nn.Module):
+    def __init__(self, signalLength,signalChannel,embedingDim=512,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.e_ffn = nn.Sequential(
+            nn.Linear(embedingDim,embedingDim),
+            nn.LeakyReLU(),
+            nn.Linear(embedingDim,embedingDim)
+        )
+
+        self.e_conv = nn.Sequential(
+            nn.Conv1d(embedingDim,signalChannel,31,padding="same"),
+            nn.SiLU(),
+            nn.Conv1d(signalChannel,signalChannel,31,padding="same")
+        )
+
+        # self.e_skip = nn.Conv1d(1,signalChannel,1)
+
+        self.x_ffn = nn.Sequential(
+            nn.Linear(signalLength,signalLength),
+            nn.LeakyReLU(),
+            nn.Linear(signalLength,signalLength)
+        )
+
+        self.x_conv = nn.Sequential(
+            nn.Conv1d(signalChannel,signalChannel,31,padding="same"),
+            nn.SiLU(),
+            nn.Conv1d(signalChannel,signalChannel,31,padding="same")
+        )
+
+        self.cross_attention1 = nn.MultiheadAttention(signalChannel,4,batch_first=True)
+        self.film = FiLMLayer(embedingDim,embedingDim,1)
+        self.cross_attention2 = nn.MultiheadAttention(signalChannel,4,batch_first=True)
+
+        self.ffn = nn.Sequential(
+            nn.Linear(signalChannel,signalLength),
+            nn.LeakyReLU(),
+            nn.Linear(signalLength,signalLength),
+            nn.Tanh()
+        )
+
+        self.norm = nn.LayerNorm([signalChannel,signalLength])
+    
+    def forward(self,x,e,origin_e):
+        e1 = self.e_ffn(e)
+        e2 = e+ e1/2
+        # e2 = e2.unsqueeze(1)
+        e3 = self.e_conv(e2)
+        e4 = e3 + e2 #+ self.e_skip(e2)
+        # e4 = e4.transpose(1,2)
+
+        x1 = self.x_ffn(x)
+        x2 = x + x1/2 
+        x3 = self.x_conv(x2)
+        x4 =x3+x2
+        x4 = x4.transpose(1,2)
+
+        att1 = self.cross_attention1(query=e4,key=x4,value=x4)[0]
+        y1 = att1 + e4
+        film = self.film(y1,origin_e)
+        att2 = self.cross_attention2(query=e4,key=film,value=film)[0]
+        y2 = att2 + e4
+        y2 = y2.transpose(1,2)
+        y3 = self.ffn(y2)
+        y = self.norm(y3)
+        return y
+class UnetV2(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.positional = PositionalEncoding(511,512)
+        
+        self.emb = nn.Linear(256,512)
+        self.down1 = DownConvBlock(1,128,32000,downWindow=2)
+        self.down2 = DownConvBlock(128,128,16000,downWindow=2)
+        self.down3 = DownConvBlock(128,256,8000)
+        self.down4 = DownConvBlock(256,512,2000)
+        self.middle1 = TimeFrameCrossAttentionConvformerV2(500,512,512)
+        self.middle2 = TimeFrameCrossAttentionConvformerV2(500,512,512)
+        self.middle3 = TimeFrameCrossAttentionConvformerV2(500,512,512)
+        self.up1 = UpConvBlock(512,256,2000)
+        self.up2 = UpConvBlock(256,128,8000)
+        self.up3 = UpConvBlock(128,128,16000,upWindow=2)
+        self.up4 = UpConvBlock(128,64,32000,upWindow=2)
+        self.outputLayer = nn.Sequential(
+            nn.Conv1d(64,1,1),
+            nn.Tanh()
+        )
+        self.norm1 = nn.InstanceNorm1d(128)
+        self.norm2 = nn.InstanceNorm1d(128)
+        self.norm3 = nn.InstanceNorm1d(256)
+        self.norm4 = nn.InstanceNorm1d(512)
+    def forward(self,wav,emb):
+        e = self.emb(emb)
+        d1 = self.down1(wav,e)
+        d2 = self.down2(d1,e)
+        d3 = self.down3(d2,e)
+        d4 = self.down4(d3,e)
+
+        m_e = self.positional(e.unsqueeze(-1))
+
+        m1 = self.middle1(d4,m_e,e)
+        m2 = self.middle2(m1,m_e,e)
+        m3 = self.middle2(m2+m1,m_e,e)
+
+        u1_i = self.norm4(d4+m3)
+        u1 = self.up1(u1_i,e)
+        u2_i = self.norm3(u1+d3)
+        u2 = self.up2(u2_i,e)
+        u3_i = self.norm2(u2+d2)
+        u3 = self.up3(u3_i,e)
+        u4_i = self.norm1(u3+d1)
+        u4 = self.up4(u4_i,e)
+        y = self.outputLayer(u4)
         return y
