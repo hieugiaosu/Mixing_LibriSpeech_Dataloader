@@ -415,6 +415,5 @@ class Unet(nn.Module):
             u2 = self.up2(u1+d2,e)
             u3 = self.up3(u2+d1,e)
             y = self.outputLayer(u3)
-
-            latent_loss = F.mse_loss(m3[batch:,:,:],m3[:batch,:,:],True,True,'mean')
-            return y, latent_loss.mean()
+            if return_latent: return y,m3
+            return y
