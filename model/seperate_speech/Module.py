@@ -390,7 +390,7 @@ class Unet(nn.Module):
             d3 = self.down3(d2,e)
             m1 = self.middle1(d3,e)
             m2 = self.middle2(m1,e)
-            m3 = self.middle2(m2+m1,e)
+            m3 = self.middle3(m2+m1,e)
             u1 = self.up1(m3+d3,e)
             u2 = self.up2(u1+d2,e)
             u3 = self.up3(u2+d1,e)
@@ -408,7 +408,7 @@ class Unet(nn.Module):
             d3 = self.down3(d2,e)
             m1 = self.middle1(d3,e)
             m2 = self.middle2(m1,e)
-            m3 = self.middle2(m2+m1,e)
+            m3 = self.middle3(m2+m1,e)
 
             teacher_latent = torch.cat([m3[:batch,:,:]]*2,dim=0)
             u1 = self.up1(teacher_latent,e)
