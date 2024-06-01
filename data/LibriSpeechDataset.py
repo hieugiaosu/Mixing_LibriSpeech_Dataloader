@@ -61,7 +61,7 @@ class LibriSpeechDataset(Dataset):
         self.maxAudioSamples = int(self.sampleRate * self.maxAudioLength)
         self.windowSize = int(windowSize*self.sampleRate)
         self.hopLength = int(hopLength*self.sampleRate)
-        self.numWindowEachAudio = int(maxAudioLength/hopLength)
+        self.numWindowEachAudio = int((maxAudioLength-windowSize)/hopLength)
         self.len = self.numWindowEachAudio*len(self.data)
         
     def __len__(self):
@@ -90,4 +90,4 @@ class LibriSpeechDataset(Dataset):
                 waveform = torch.cat([padding,waveform],dim=1)
         waveform = waveform.squeeze()
         window = waveform[windowIdx*self.hopLength:windowIdx*self.hopLength+self.windowSize]
-        return window,waveform, speaker
+        return window,waveform, torch.tensor(speaker)
