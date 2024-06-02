@@ -79,6 +79,7 @@ class LibriSpeechDataset(Dataset):
                 orig_freq=sampleRate,
                 new_freq=self.sampleRate
                 )
+        padding = 0
         if waveform.size(1) > self.maxAudioSamples:
             waveform = waveform[:, :self.maxAudioSamples]
         else:
@@ -89,5 +90,7 @@ class LibriSpeechDataset(Dataset):
                 padding = torch.randn(1,padding)/100
                 waveform = torch.cat([padding,waveform],dim=1)
         waveform = waveform.squeeze()
+        paddingMask = torch.zeros_like(waveform)
+        paddingMask[:padding] = 1
         window = waveform[windowIdx*self.hopLength:windowIdx*self.hopLength+self.windowSize]
-        return window,waveform, torch.tensor(speaker)
+        return window,waveform,paddingMask[windowIdx*self.hopLength:windowIdx*self.hopLength+self.windowSize] ,torch.tensor(speaker)
