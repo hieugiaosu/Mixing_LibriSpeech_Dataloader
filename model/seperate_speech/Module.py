@@ -3,9 +3,120 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import torchaudio.transforms as T 
 from einops import rearrange,repeat
-import math
-from resemblyzer import VoiceEncoder 
+from functools import reduce
+import numpy as np
+class ModuleWithPositionalEncoding(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def get_sinusoidal_positional_encoding(self, max_len, d_model,device=None):
+        position = torch.arange(max_len).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * -(np.log(10000.0) / d_model))
 
+        pos_encoding = torch.zeros((max_len, d_model))
+        pos_encoding[:, 0::2] = torch.sin(position * div_term)
+        pos_encoding[:, 1::2] = torch.cos(position * div_term)
+        pos_encoding = pos_encoding.to(device)
+        return pos_encoding
+class SpeakerEmbeddingInputTransform(nn.Module):
+    def __init__(self,melSpectrogramParam:dict ,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.mel = T.MelSpectrogram(**melSpectrogramParam)
+    def forward(self,audio):
+        mel = self.mel(audio)
+        mel = torch.log(1+mel)
+        return F.tanh(mel)
+
+class SpectrogramTransformer(ModuleWithPositionalEncoding):
+    def __init__(self,t=500,f=64,f_window_size=32,t_window_size=125) -> None:
+        super().__init__()
+        assert t%t_window_size == 0 and f%f_window_size == 0, "expect t%t_window_size == 0 and f%f_window_size == 0"
+        self.f_window_size = f_window_size
+        self.t_window_size = t_window_size
+        self.t = t 
+        self.f = f
+        self.fconv = nn.Conv2d(1,t_window_size, (1,t_window_size),stride=(1,t_window_size))
+        self.fq = nn.Linear(t_window_size*2,t_window_size*2)
+        self.fk = nn.Linear(t_window_size*2,t_window_size*2)
+        self.fv = nn.Linear(t_window_size*2,t_window_size*2)
+        self.fattention = nn.MultiheadAttention(t_window_size*2,5,batch_first=True)
+        self.fattnl = nn.Linear(t_window_size*2,t_window_size)
+
+        self.tconv = nn.Conv2d(1,f_window_size,(f_window_size,1),stride=(f_window_size,1))
+        self.tq = nn.Linear(f_window_size*2,f_window_size*2)
+        self.tk = nn.Linear(f_window_size*2,f_window_size*2)
+        self.tv = nn.Linear(f_window_size*2,f_window_size*2)
+        self.tattention = nn.MultiheadAttention(f_window_size*2,4,batch_first=True)
+        self.tattnl = nn.Linear(f_window_size*2,f_window_size)
+    def forward(self,x):
+        batch_size = x.size(0)
+        assert x.size(1) == self.f, f"expect f={self.t} but get {x.size(1)}"
+        assert x.size(2) == self.t, f"expect t={self.t} but get {x.size(2)}"
+        ## x: (B,F,T) example (B,64,500)
+        i = x.unsqueeze(1)
+        i = self.fconv(i)
+        i = rearrange(i,"b d f l -> (b l) f d")
+        fpos = self.get_sinusoidal_positional_encoding(
+                i.size(1),
+                i.size(2) if i.size(2)%2==0 else i.size(2)+1,
+                i.device
+                ).expand(i.size(0),-1,-1)
+        if i.size(2)%2!=0:
+            fpos = fpos[:,:,:-1] 
+        fi = torch.cat([i,fpos],dim=-1)
+        fq = self.fq(fi)
+        fk = self.fk(fi)
+        fv = self.fv(fi)
+        fatt = self.fattention(fq,fk,fv)[0]
+        fo = F.silu(self.fattnl(F.normalize(fatt+fi)))
+        fo = rearrange(fo,"(b l) f d -> b 1 f (l d)",b=batch_size)
+
+        i2 = self.tconv(fo)
+        i2 = rearrange(i2,"b d l t -> (b l) t d")
+        tpos = self.get_sinusoidal_positional_encoding(
+                i2.size(1),
+                i2.size(2) if i2.size(2)%2==0 else i2.size(2)+1,
+                i2.device
+                ).expand(i2.size(0),-1,-1)
+        if i2.size(2)%2!=0:
+            tpos = tpos[:,:,:-1]
+        ti = torch.cat([i2,tpos],dim=-1) 
+        tq = self.tq(ti)
+        tk = self.tk(ti)
+        tv = self.tv(ti)
+        tatt = self.tattention(tq,tk,tv)[0]
+        to = F.silu(self.tattnl(F.normalize(tatt+ti)))
+        to = rearrange(to, "(b l) t d -> b (d l) t",b=batch_size)
+        return to
+    
+
+class SpeakerEmbedding(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.inputTransform = SpeakerEmbeddingInputTransform({
+            "sample_rate":16000,
+            "n_fft": 512,
+            "f_min":40,
+            "f_max":4000,
+            "n_mels": 128,
+            "hop_length":160
+        })
+        self.conv = nn.Conv1d(128,128,2)
+        self.transformer = nn.Sequential(
+            SpectrogramTransformer(1000,128,32,125),
+            SpectrogramTransformer(1000,128,64,250),
+            SpectrogramTransformer(1000,128,128,500),
+            SpectrogramTransformer(1000,128,128,1000)
+        )
+        self.linear = nn.Linear(128,256)
+    def forward(self,audio):
+        mel = self.inputTransform(audio)
+        mel = mel.squeeze()
+        mel = F.silu(self.conv(mel))
+        # print(mel.shape)
+        e = self.transformer(mel)
+        e = rearrange(e,"b f t -> b t f")[:,-1,:]
+        e = self.linear(e)
+        return e
 class SI_SDRLoss(nn.Module):
     '''num batch dim is how many dim in tensor is a batch. 
     for example input can be (B,L) with batch is batch size and L is audio Length
@@ -42,146 +153,6 @@ class EfficientAttention(nn.Module):
         k_n = k_n.transpose(1,2)
         return torch.bmm(q_n,torch.bmm(k_n,v))
 
-class Conv1dBlock(nn.Module):
-    def __init__(self,inChannel,hiddenChannel,outChannel,windowSize,padding="same",stride=1,dilation=1, groups=1,*args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.block = nn.Sequential(
-            nn.Conv1d(inChannel,hiddenChannel,windowSize,stride=stride,padding=padding,
-                      groups=groups,dilation=dilation
-                      ),
-            nn.ELU(),
-            nn.Conv1d(hiddenChannel,hiddenChannel,windowSize,stride=stride,padding=padding,
-                      groups=groups,dilation=dilation
-                      ),
-            nn.ELU(), 
-            nn.Conv1d(hiddenChannel,outChannel,windowSize,stride=stride,padding=padding,
-                      groups=groups,dilation=dilation
-                      )
-        )
-    def forward(self,x):
-        return self.block(x)
-class UnitBlock(nn.Module):
-    def __init__(self,inChannel, outChannel,inputLength ,embHiddenChannel=171,embedingDim=512 ,*args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.audioTransform = Conv1dBlock(
-            inChannel,
-            (outChannel+inChannel)//2,
-            outChannel,inputLength//100 + 1,
-            )
-        self.embTransform = Conv1dBlock(
-            embHiddenChannel,
-            (outChannel+embHiddenChannel)//2,
-            outChannel,1
-        )
-        self.qExtract1 = nn.Sequential(
-            nn.Conv1d(outChannel,outChannel,inputLength//100,stride=inputLength//100),
-            nn.ELU(),
-            nn.Linear(100,embedingDim)
-        )
-        self.vExtract1 = nn.Conv1d(outChannel,outChannel,1)
-        self.crossAttention1 = EfficientAttention()
-        self.layerNorm = nn.LayerNorm((outChannel,inputLength))
-        self.convLayer = Conv1dBlock(outChannel,outChannel,outChannel,inputLength//100 + 1)
-        self.qExtract2 = nn.Sequential(
-            nn.Conv1d(outChannel,outChannel,inputLength//100,stride=inputLength//100),
-            nn.ELU(),
-            nn.Linear(100,embedingDim)
-        )
-        self.vExtract2 = nn.Conv1d(outChannel,outChannel,1)
-        self.crossAttention2 = EfficientAttention()
-    def forward(self,audio,emb_hidden):
-        audio_i = self.audioTransform(audio)
-        emb_i = self.embTransform(emb_hidden)
-        q1 = self.qExtract1(audio_i)
-        v1 = self.vExtract1(audio_i)
-        att = self.crossAttention1(q=q1,k=emb_i,v=v1)
-        o = self.convLayer(att)
-        o = self.layerNorm(att+o)
-        q2 = self.qExtract2(o)
-        v2 = self.vExtract2(o)
-        output = self.crossAttention2(q=q2,k=emb_i,v=v2)
-        return output
-class FiLMBlock(nn.Module):
-    def __init__(self,inDim, outFiLMFeatures,transform ,*args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.model = nn.Sequential(
-            nn.Linear(inDim,outFiLMFeatures*2),
-            nn.ELU(),
-            nn.Linear(outFiLMFeatures*2,outFiLMFeatures*2)
-        )
-        self.filmFeature = outFiLMFeatures
-        self.transform = transform
-    def forward(self,condition,*args,**kwwargs):
-        film =self.model(condition)
-        gamma = film[:,:self.filmFeature]
-        beta = film[:,self.filmFeature:]
-        y = self.transform(*args,**kwwargs)
-        return gamma[:,:,None]*y+beta[:,:,None]
-class AEBaseModel(nn.Module):
-    def __init__(self,inputLength ,embHiddenChannel=171,embedingDim=512, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.left = nn.ModuleList([
-            UnitBlock(1,128,inputLength,embHiddenChannel,embedingDim),
-            UnitBlock(128,256,inputLength//4,embHiddenChannel,embedingDim),
-            UnitBlock(256,512,inputLength//16,embHiddenChannel,embedingDim)
-        ])
-        self.right = nn.ModuleList([
-            UnitBlock(512,256,inputLength//16,embHiddenChannel,embedingDim),
-            UnitBlock(256,128,inputLength//4,embHiddenChannel,embedingDim),
-            UnitBlock(128,128,inputLength,embHiddenChannel,embedingDim)
-        ])
-        self.beforLast = FiLMBlock(embedingDim,128,nn.Sequential(
-            nn.Conv1d(128,128,1),
-            nn.ELU()
-        ))
-        self.lastLayer = nn.Sequential(
-            nn.Conv1d(128,128,inputLength//100+1,padding="same"),
-            nn.ELU(),
-            nn.Conv1d(128,1,inputLength//100+1,padding="same"),
-            nn.Tanh()
-        )
-        self.downSample = nn.ModuleList([
-            FiLMBlock(embedingDim,128,nn.AvgPool1d(4)),
-            FiLMBlock(embedingDim,256,nn.AvgPool1d(4))
-            ])
-        self.middle = FiLMBlock(embedingDim,512,nn.Conv1d(512,512,1))
-        self.upSample = nn.ModuleList([
-            FiLMBlock(embedingDim,256,nn.ConvTranspose1d(256,256,4,stride=4)),
-            FiLMBlock(embedingDim,128,nn.ConvTranspose1d(128,128,4,stride=4))
-            ])
-        self.norm = nn.ModuleList([
-            nn.LayerNorm([256,inputLength//16]),
-            nn.LayerNorm([256,inputLength//4]),
-            nn.LayerNorm([128,inputLength]),
-            ])
-    def forward(self,audio,emb_hidden,emb):
-        l1o = self.left[0](audio,emb_hidden)
-        l2i = self.downSample[0](emb,l1o)
-        l2o = self.left[1](l2i,emb_hidden)
-        l3i = self.downSample[1](emb,l2o)
-        l3o = self.left[2](l3i,emb_hidden)
-        l4i = self.middle(emb,l3o)
-        l4o = self.right[0](l4i,emb_hidden)
-        l4o = self.norm[0](l4o+l3i)
-        l5i = self.upSample[0](emb,l4o,output_size=l2o.size())
-        l5i = self.norm[1](l5i+l2o)
-        l5o = self.right[1](l5i,emb_hidden)
-        l6i = self.upSample[1](emb,l5o,output_size=l1o.size())
-        l6i = self.norm[2](l6i+l1o)
-        l6o = self.right[2](l6i,emb_hidden)
-        o = self.beforLast(emb,l6o)
-        o = self.lastLayer(o) 
-        return o
-    
-class AEInputConfigAfterEmbedding:
-    def __init__(self) -> None:
-        pass
-    def __call__(self,e_output,audio):
-        return {"audio": repeat(audio['mixing'],"b l -> (b r) 1 l", r=audio["audio"].shape[0]//audio["mixing"].shape[0]),
-                "emb_hidden": e_output['last_hidden'], "emb": e_output['output']
-                }
-
-
 class FiLMLayer(nn.Module):
     def __init__(self,featureSize,transformSize ,applyDim,*args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -209,12 +180,6 @@ class FiLMLayer(nn.Module):
             y = y.transpose(1,self.applyDim)
         return y 
 
-class SpeakerEmbedding:
-    def __init__(self):
-        self.encoder = VoiceEncoder()
-        self.encoder.eval()
-    def __call__(self,wav ,*args, **kwds):
-        return torch.stack(list(map(lambda x: torch.tensor(self.encoder.embed_utterance(x.numpy())),wav)))
 class DownConvBlock(nn.Module):
     def __init__(self,inChannel,outChannel,signalLength,embedingDim=512,downWindow=4, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -417,3 +382,158 @@ class Unet(nn.Module):
             y = self.outputLayer(u3)
             if return_latent: return y,m3
             return y
+
+class ContinuousEmbeddingLayer(nn.Module):
+    def __init__(self,embedding_dim,chunks=1000):
+        super().__init__()
+        self.chunks = float(chunks)
+        self.emb = nn.Embedding(chunks,embedding_dim)
+    def forward(self, x):
+        idx = (F.tanh(x)+1)*self.chunks/2
+        idx = idx.long()
+        e = self.emb(idx)
+        return e
+
+class TimeFrameFeatureExtractingBlockAttention(nn.Module):
+    def __init__(self,dim):
+        super().__init__()
+        self.dim = dim
+        self.att = nn.MultiheadAttention(dim,2,batch_first=True)
+        self.conv = nn.Sequential(
+            nn.Conv2d(1,32,3,padding="same"),
+            nn.SiLU(),
+            nn.Conv2d(32,64,3,padding="same"),
+            nn.SiLU(),
+            nn.Conv2d(64,1,3,padding="same"),
+        )
+    def forward(self,x,e):
+        ### now x have shape (B,T,F)
+        att = self.att(x,e,e)[0]
+        convi = F.normalize(att+x)
+        convi = convi.unsqueeze(1)
+        o = self.conv(convi)
+        o = o.squeeze()
+        return o
+
+
+
+class TimeFrameFeatureExtractingBlock(ModuleWithPositionalEncoding):
+    def __init__(self,dim,nLayer):
+        super().__init__()
+        self.dim = dim
+        self.nLayer = nLayer
+        self.embLayer = ContinuousEmbeddingLayer(dim*2)
+
+        self.q_transform = nn.Sequential(
+            nn.Linear(dim*2,dim*2),
+            nn.SiLU()
+        )
+
+        self.transformer = nn.ModuleList([
+            TimeFrameFeatureExtractingBlockAttention(dim*2) for _ in range(nLayer)
+        ])
+
+        self.linear = nn.Linear(dim*2,dim)
+
+    def forward(self,spectrogram,embedding):
+        #spectrogram shape (B,F,T)
+        i = rearrange(spectrogram,"B F T -> B T F")
+        e = self.embLayer(embedding)
+        pos = self.get_sinusoidal_positional_encoding(
+                i.size(1),
+                i.size(2) if i.size(2)%2==0 else i.size(2)+1,
+                i.device
+                ).expand(i.size(0),-1,-1)
+        if i.size(2)%2!=0:
+            pos = pos[:,:,:-1] 
+        i = torch.cat([i,pos],dim=-1)
+        o = self.q_transform(i)
+        for layer in self.transformer:
+            o = layer(o,e)
+        o = self.linear(o)
+        o = rearrange(o, "B T F -> B F T")
+        return o
+
+class DownUnetConvBlock(nn.Module):
+    def __init__(self,inChannel,outChannel,embeddingDim=256):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(inChannel,outChannel,3),
+            nn.SiLU(),
+            nn.Conv2d(outChannel,outChannel,3),
+            nn.SiLU(),
+            nn.Conv2d(outChannel,outChannel,3),
+            nn.SiLU()
+        )
+        self.down = nn.MaxPool2d(2)
+        self.filmDown = FiLMLayer(embeddingDim,outChannel,1)
+    def forward(self,x,e):
+        o = self.conv(x)
+        o = self.down(o)
+        o = self.filmDown(o,e)
+        return o
+    
+class UpUnetConvBlock(nn.Module):
+    def __init__(self,inChannel,outChannel,embeddingDim=256):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(inChannel,outChannel,3),
+            nn.SiLU(),
+            nn.ConvTranspose2d(outChannel,outChannel,3),
+            nn.SiLU(),
+            nn.ConvTranspose2d(outChannel,outChannel,3),
+            nn.SiLU()
+        )
+        self.up = nn.ConvTranspose2d(outChannel,outChannel,2,stride=2)
+        self.filmUp = FiLMLayer(embeddingDim,outChannel,1)
+    def forward(self,x,e):
+        o = self.conv(x)
+        o = self.up(o)
+        o = self.filmUp(o,e)
+        return o
+    
+class MiddleUnetConvBlock(nn.Module):
+    def __init__(self,inChannel,outChannel,embeddingDim=256):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(inChannel,outChannel,3,padding="same"),
+            nn.SiLU(),
+            nn.ConvTranspose2d(outChannel,outChannel,3,padding="same"),
+            nn.SiLU(),
+            nn.ConvTranspose2d(outChannel,outChannel,3,padding="same"),
+            nn.SiLU()
+        )
+        self.filmUp = FiLMLayer(embeddingDim,outChannel,1)
+    def forward(self,x,e):
+        o = self.conv(x)
+        o = self.filmUp(o,e)
+        return o
+    
+class UnetConv2d(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.down1 = DownUnetConvBlock(1,64)
+        self.down2 = DownUnetConvBlock(64,128)
+        self.middle = MiddleUnetConvBlock(128,512)
+        self.up1 = UpUnetConvBlock(512,32)
+        self.up2 = UpUnetConvBlock(32,1)
+    def forward(self,x,e):
+        i = x.unsqueeze(1)
+        o = self.down1(i,e)
+        o = self.down2(o,e)
+        o = self.middle(o,e)
+        o = self.up1(o,e)
+        o = self.up2(o,e)
+        return o.squeeze()
+    
+class SpeechSep(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.emb = SpeakerEmbedding()
+        self.timeExtract = TimeFrameFeatureExtractingBlock(257,3)
+        self.unet = UnetConv2d()
+    def forward(self,audio_sample, mixed_spectrogram):
+        e = self.emb(audio_sample)
+        o = self.timeExtract(mixed_spectrogram,e)
+        o = self.unet(o,e)
+        return o
