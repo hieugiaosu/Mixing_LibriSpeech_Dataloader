@@ -496,11 +496,11 @@ class MiddleUnetConvBlock(nn.Module):
     def __init__(self,inChannel,outChannel,embeddingDim=256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.ConvTranspose2d(inChannel,outChannel,3,padding="same"),
+            nn.Conv2d(inChannel,outChannel,3,padding="same"),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel,outChannel,3,padding="same"),
+            nn.Conv2d(outChannel,outChannel,3,padding="same"),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel,outChannel,3,padding="same"),
+            nn.Conv2d(outChannel,outChannel,3,padding="same"),
             nn.SiLU()
         )
         self.filmUp = FiLMLayer(embeddingDim,outChannel,1)
