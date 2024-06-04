@@ -455,75 +455,79 @@ class TimeFrameFeatureExtractingBlock(ModuleWithPositionalEncoding):
         return o
 
 class DownUnetConvBlock(nn.Module):
-    def __init__(self,inChannel,outChannel,embeddingDim=256):
+    def __init__(self, inChannel, outChannel, embeddingDim=256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(inChannel,outChannel,3),
+            nn.Conv2d(inChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.Conv2d(outChannel,outChannel,3),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.Conv2d(outChannel,outChannel,3),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU()
         )
         self.down = nn.MaxPool2d(2)
-        self.filmDown = FiLMLayer(embeddingDim,outChannel,1)
-    def forward(self,x,e):
+        self.filmDown = FiLMLayer(embeddingDim, outChannel, 1)
+
+    def forward(self, x, e):
         o = self.conv(x)
         o = self.down(o)
-        o = self.filmDown(o,e)
+        o = self.filmDown(o, e)
         return o
-    
+
 class UpUnetConvBlock(nn.Module):
-    def __init__(self,inChannel,outChannel,embeddingDim=256):
+    def __init__(self, inChannel, outChannel, embeddingDim=256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.ConvTranspose2d(inChannel,outChannel,3),
+            nn.ConvTranspose2d(inChannel, outChannel, 3, padding=1, output_padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel,outChannel,3),
+            nn.ConvTranspose2d(outChannel, outChannel, 3, padding=1, output_padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel,outChannel,3),
+            nn.ConvTranspose2d(outChannel, outChannel, 3, padding=1, output_padding=1),
             nn.SiLU()
         )
-        self.up = nn.ConvTranspose2d(outChannel,outChannel,2,stride=2)
-        self.filmUp = FiLMLayer(embeddingDim,outChannel,1)
-    def forward(self,x,e):
+        self.up = nn.ConvTranspose2d(outChannel, outChannel, 2, stride=2)
+        self.filmUp = FiLMLayer(embeddingDim, outChannel, 1)
+
+    def forward(self, x, e):
         o = self.conv(x)
         o = self.up(o)
-        o = self.filmUp(o,e)
+        o = self.filmUp(o, e)
         return o
-    
+
 class MiddleUnetConvBlock(nn.Module):
-    def __init__(self,inChannel,outChannel,embeddingDim=256):
+    def __init__(self, inChannel, outChannel, embeddingDim=256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(inChannel,outChannel,3,padding="same"),
+            nn.Conv2d(inChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.Conv2d(outChannel,outChannel,3,padding="same"),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.Conv2d(outChannel,outChannel,3,padding="same"),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU()
         )
-        self.filmUp = FiLMLayer(embeddingDim,outChannel,1)
-    def forward(self,x,e):
+        self.filmUp = FiLMLayer(embeddingDim, outChannel, 1)
+
+    def forward(self, x, e):
         o = self.conv(x)
-        o = self.filmUp(o,e)
+        o = self.filmUp(o, e)
         return o
-    
+
 class UnetConv2d(nn.Module):
     def __init__(self):
         super().__init__()
-        self.down1 = DownUnetConvBlock(1,64)
-        self.down2 = DownUnetConvBlock(64,128)
-        self.middle = MiddleUnetConvBlock(128,512)
-        self.up1 = UpUnetConvBlock(512,32)
-        self.up2 = UpUnetConvBlock(32,1)
-    def forward(self,x,e):
+        self.down1 = DownUnetConvBlock(1, 64)
+        self.down2 = DownUnetConvBlock(64, 128)
+        self.middle = MiddleUnetConvBlock(128, 512)
+        self.up1 = UpUnetConvBlock(512, 32)
+        self.up2 = UpUnetConvBlock(32, 1)
+
+    def forward(self, x, e):
         i = x.unsqueeze(1)
-        o = self.down1(i,e)
-        o = self.down2(o,e)
-        o = self.middle(o,e)
-        o = self.up1(o,e)
-        o = self.up2(o,e)
+        o = self.down1(i, e)
+        o = self.down2(o, e)
+        o = self.middle(o, e)
+        o = self.up1(o, e)
+        o = self.up2(o, e)
         return o.squeeze()
     
 class SpeechSep(nn.Module):
