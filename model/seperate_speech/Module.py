@@ -391,7 +391,6 @@ class ContinuousEmbeddingLayer(nn.Module):
     def forward(self, x):
         idx = (F.tanh(x)+1)*self.chunks/2
         idx = idx.long()
-        print(idx)
         e = self.emb(idx)
         return e
 
