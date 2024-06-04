@@ -478,19 +478,19 @@ class UpUnetConvBlock(nn.Module):
     def __init__(self, inChannel, outChannel, embeddingDim=256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.ConvTranspose2d(inChannel, outChannel, 3, padding=1, output_padding=1),
+            nn.Conv2d(inChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel, outChannel, 3, padding=1, output_padding=1),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(outChannel, outChannel, 3, padding=1, output_padding=1),
+            nn.Conv2d(outChannel, outChannel, 3, padding=1),
             nn.SiLU()
         )
         self.up = nn.ConvTranspose2d(outChannel, outChannel, 2, stride=2)
         self.filmUp = FiLMLayer(embeddingDim, outChannel, 1)
 
-    def forward(self, x, e):
+    def forward(self, x, e,output_size):
         o = self.conv(x)
-        o = self.up(o)
+        o = self.up(o,output_size=output_size)
         o = self.filmUp(o, e)
         return o
 
@@ -518,17 +518,18 @@ class UnetConv2d(nn.Module):
         self.down1 = DownUnetConvBlock(1, 64)
         self.down2 = DownUnetConvBlock(64, 128)
         self.middle = MiddleUnetConvBlock(128, 512)
-        self.up1 = UpUnetConvBlock(512, 32)
-        self.up2 = UpUnetConvBlock(32, 1)
+        self.up1 = UpUnetConvBlock(512,128)
+        self.up2 = UpUnetConvBlock(128, 1)
 
     def forward(self, x, e):
+        batch_size = x.size(0)
         i = x.unsqueeze(1)
-        o = self.down1(i, e)
-        o = self.down2(o, e)
-        o = self.middle(o, e)
-        o = self.up1(o, e)
-        o = self.up2(o, e)
-        return o.squeeze()
+        d1 = self.down1(i, e)
+        d2 = self.down2(d1, e)
+        m = self.middle(d2, e)
+        u1 = self.up1(m, e,torch.tensor([batch_size,128,d1.size(2),d1.size(3)]))
+        u2 = self.up2(u1, e,torch.tensor([batch_size,1,i.size(2),i.size(3)]))
+        return u2.squeeze()
     
 class SpeechSep(nn.Module):
     def __init__(self):
