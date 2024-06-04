@@ -536,4 +536,4 @@ class SpeechSep(nn.Module):
         e = self.emb(audio_sample)
         o = self.timeExtract(mixed_spectrogram,e)
         o = self.unet(o,e)
-        return o
+        return o,e
