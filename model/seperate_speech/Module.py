@@ -118,31 +118,32 @@ class SpeakerEmbedding(nn.Module):
         e = self.linear(e)
         return e
 class SI_SDRLoss(nn.Module):
-    '''num batch dim is how many dim in tensor is a batch. 
-    for example input can be (B,L) with batch is batch size and L is audio Length
-    or it can be: (B,S,L) with batch is batch size, S is number of speaker in each
-    batch and L is audio Length.
-    For this version, I only support those kind of shape. So numBatchDim is only
-    2 or 3
-    '''
-    def __init__(self,numBatchDim:int=2 ,*args, **kwargs) -> None:
+    def __init__(self, numBatchDim: int = 2, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        assert numBatchDim == 2 or numBatchDim == 3, "only support 2 or 3"
+        assert numBatchDim in (2, 3), "Only support numBatchDim of 2 or 3"
         self.numBatchDim = numBatchDim
-    def forward(self,input,label):
-        assert input.shape == label.shape, "2 input of loss function must have the same shape"
-        assert input.dim() == self.numBatchDim, f"numBatchDim is set to {self.numBatchDim} but get {input.shape} tensor as a input"
+
+    def forward(self, input, label):
+        assert input.shape == label.shape, "Input and label must have the same shape"
+        assert input.dim() == self.numBatchDim, f"Expected input dimension {self.numBatchDim}, but got {input.dim()}"
+
         if self.numBatchDim == 3:
-            ## now is (B,S,L)
-            input = rearrange(input,"b s l -> (b s) l")
-            label = rearrange(label,"b s l -> (b s) l")
-        term1 = torch.bmm(input.unsqueeze(1),label.unsqueeze(2)).squeeze()
-        term2 = torch.bmm(label.unsqueeze(1),label.unsqueeze(2)).squeeze()
-        alpha = term1/(term2+1e-6) 
-        term3 = alpha.unsqueeze(1)*label-input
-        term4 = torch.bmm(term3.unsqueeze(1),term3.unsqueeze(2)).squeeze() + 1e-6
-        loss = -10*torch.log10(((alpha**2)*term2 + 1e-6)/term4)
-        return loss.mean(0)
+            # Reshape from (B, S, L) to (B*S, L)
+            input = rearrange(input, "b s l -> (b s) l")
+            label = rearrange(label, "b s l -> (b s) l")
+
+        # Compute alpha (scaling factor)
+        term1 = torch.bmm(input.unsqueeze(1), label.unsqueeze(2)).squeeze()
+        term2 = torch.bmm(label.unsqueeze(1), label.unsqueeze(2)).squeeze()
+        alpha = term1 / (term2 + 1e-6)
+
+        # Compute residual
+        term3 = alpha.unsqueeze(1) * label - input
+        term4 = torch.bmm(term3.unsqueeze(1), term3.unsqueeze(2)).squeeze() + 1e-6
+
+        # Compute SI-SDR loss
+        loss = -10 * torch.log10(((alpha ** 2) * term2 + 1e-6) / term4)
+        return loss.mean()
 
 class EfficientAttention(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
