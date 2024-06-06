@@ -22,5 +22,5 @@ def Mix2Speakers():
         sumTerm = audioAct+invAudioAct 
         sumTerm = torch.max(sumTerm,torch.tensor(1.0))
         mix = audio*(audioAct/sumTerm) + invAudio*(invAudioAct/sumTerm)
-        return mix, F.normalize(spec(mix))
+        return mix, spec(mix)
     return mixAudio
