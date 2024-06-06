@@ -11,7 +11,7 @@ from data.DataException import SilenceWindow
 #         return silence
 #     return proc
 def Mix2Speakers():
-    spec = T.Spectrogram(512,hop_length=160)
+    spec = T.Spectrogram(512,hop_length=128)
     def mixAudio(audio:torch.Tensor,paddingMap:torch.Tensor,label:torch.Tensor):
         invAudio = torch.flip(audio,[0])
         invlabel = torch.flip(label,[0])
