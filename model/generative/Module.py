@@ -60,4 +60,7 @@ class Discriminator(nn.Module):
         o4 = o4.view(batch,-1)
         o = self.lin(o4)
         return o
-        
+
+class GanModel(nn.Module):
+    def __init__(self,channel=2,height=257,width=251):
+        super().__init__()
