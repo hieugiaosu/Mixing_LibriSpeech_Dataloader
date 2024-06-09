@@ -139,14 +139,16 @@ class BatchAdaptiveConv2d(nn.Module):
         biasAdapt = self.biasAdapt(i) #shape (B,128)
         w = self.weights.expand(batch,-1,-1,-1,-1)
         w = w*weightAdapt #batch 128 128 3 3
-        b = self.bias.expand(batch,self.outChannels)
-        b = b*biasAdapt
+        
 
         i = rearrange(x,'b c h w -> 1 (b c) h w')
         k = rearrange(w, 'g c_in c_out k1 k2 -> (g c_out) c_in k1 k2')
 
         o = F.conv2d(i,k,groups=batch,padding="same")
         o = rearrange(o, '1 (b c) h w -> b c h w', b=batch)
+
+        b = self.bias.expand(batch,o.size(1))
+        b = b*biasAdapt
         o = o + b[...,None, None, None]
         return o
 
