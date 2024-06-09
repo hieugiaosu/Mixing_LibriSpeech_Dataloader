@@ -134,7 +134,8 @@ class BatchAdaptiveConv2d(nn.Module):
         batch = x.size(0)
         i = torch.cat([condition,layer_pos_embedding],dim=-1)
         
-        weightAdapt = self.weightAdapt(i)[..., *(None,) * 3] #shape (B,128)
+        weightAdapt = self.weightAdapt(i) #shape (B,128)
+        weightAdapt = weightAdapt[..., *(None,) * 3]
         biasAdapt = self.biasAdapt(i) #shape (B,128)
         w = self.weights.expand(batch,*(-1,)*4)
         w = w*weightAdapt #batch 128 128 3 3
