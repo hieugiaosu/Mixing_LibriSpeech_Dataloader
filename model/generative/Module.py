@@ -135,9 +135,9 @@ class BatchAdaptiveConv2d(nn.Module):
         i = torch.cat([condition,layer_pos_embedding],dim=-1)
         
         weightAdapt = self.weightAdapt(i) #shape (B,128)
-        weightAdapt = weightAdapt[..., *(None,) * 3]
+        weightAdapt = weightAdapt[..., None, None, None]
         biasAdapt = self.biasAdapt(i) #shape (B,128)
-        w = self.weights.expand(batch,*(-1,)*4)
+        w = self.weights.expand(batch,-1,-1,-1,-1)
         w = w*weightAdapt #batch 128 128 3 3
         b = self.bias.expand(batch,self.outChannels)
         b = b*biasAdapt
@@ -147,7 +147,7 @@ class BatchAdaptiveConv2d(nn.Module):
 
         o = F.conv2d(i,k,groups=batch,padding="same")
         o = rearrange(o, '1 (b c) h w -> b c h w', b=batch)
-        o = o + b[...,*(None,)*2]
+        o = o + b[...,None, None, None]
         return o
 
 
