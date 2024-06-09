@@ -149,7 +149,8 @@ class BatchAdaptiveConv2d(nn.Module):
 
         b = self.bias.expand(batch,o.size(1))
         b = b*biasAdapt
-        o = o + b[...,None, None, None]
+        o = o + b[...,None, None]
+        
         return o
 
 
