@@ -196,4 +196,4 @@ class GanModel(nn.Module):
         pos = self.layerPosEmb(pos)
         for idx,layer in enumerate(self.adaptConv):
             f2 = layer(f2,cond.squeeze(),pos[idx].expand(batch,-1))
-        return f2
+        return f2*spectrogram
