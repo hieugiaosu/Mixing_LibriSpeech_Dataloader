@@ -75,8 +75,6 @@ class FeatureMapExtractor(nn.Module):
             nn.LayerNorm([processChannel,height,width]),
             nn.Conv2d(processChannel,processChannel,3,padding="same"),
             nn.SiLU(),
-            nn.Conv2d(processChannel,processChannel,3,padding="same"),
-            nn.SiLU(),
             nn.Dropout(dropout),
         )
 
