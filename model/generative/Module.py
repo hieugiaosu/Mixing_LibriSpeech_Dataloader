@@ -62,7 +62,7 @@ class Discriminator(nn.Module):
         return o
 
 class FeatureMapExtractor(nn.Module):
-    def __init__(self,channel=2,height=257,width=251,processChannel = 128,dropout=0.2,return_map = False):
+    def __init__(self,channel=2,height=257,width=251,processChannel = 128,dropout=0.2,return_map = True):
         super().__init__()
         self.processChannel = processChannel
         self.return_map = return_map
