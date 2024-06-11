@@ -196,7 +196,7 @@ class GanModel(nn.Module):
         device = spectrogram.device
         if spectrogram.dim()!=4:
             spectrogram = spectrogram.unsqueeze(1)
-        i = torch.cat([spectrogram,torch.zeros_like(spectrogram)],dim=1).to(device)
+        i = torch.cat([spectrogram,torch.randn_like(spectrogram)],dim=1).to(device)
         f1,f2 = self.featureExtractor(i)
         globalInfo = self.globalInfo(f1).squeeze()
         globalInfo = rearrange(globalInfo,"b d l -> b l d")
