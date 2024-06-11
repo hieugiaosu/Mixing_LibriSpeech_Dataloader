@@ -62,15 +62,22 @@ class Discriminator(nn.Module):
         return o
 
 class FeatureMapExtractor(nn.Module):
-    def __init__(self,channel=2,height=257,width=251,processChannel = 128,dropout=0.2):
+    def __init__(self,channel=2,height=257,width=251,processChannel = 128,dropout=0.2,return_map = False):
         super().__init__()
         self.processChannel = processChannel
+        self.return_map = return_map
         self.upChannel = nn.Sequential(
             nn.Conv2d(channel,processChannel//2,3,padding="same"),
             nn.SiLU(),
+            nn.LayerNorm([processChannel//2,height,width]),
             nn.Conv2d(processChannel//2,processChannel,3,padding="same"),
             nn.SiLU(),
-            nn.Dropout(dropout)
+            nn.LayerNorm([processChannel,height,width]),
+            nn.Conv2d(processChannel,processChannel,3,padding="same"),
+            nn.SiLU(),
+            nn.Conv2d(processChannel,processChannel,3,padding="same"),
+            nn.SiLU(),
+            nn.Dropout(dropout),
         )
 
         self.dil1 = nn.Sequential(
@@ -94,6 +101,7 @@ class FeatureMapExtractor(nn.Module):
         )
 
         self.residual = nn.Conv3d(1,4,(processChannel,5,5),padding=(0,2,2))
+        self.layerNorm = nn.LayerNorm([processChannel,height,width])
     def forward(self,x):
         i = self.upChannel(x)
         dil1 = self.dil1(i).unsqueeze(1)
@@ -104,7 +112,11 @@ class FeatureMapExtractor(nn.Module):
         res = self.residual(i.unsqueeze(1))
         o = dil*res
         o = o.mean(1)
-        return i, F.normalize(o)
+        o = self.layerNorm(o)
+        if self.return_map:
+            return i,o
+        else:
+            return o
 
 class BatchAdaptiveConv2d(nn.Module):
     def __init__(
