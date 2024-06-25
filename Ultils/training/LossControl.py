@@ -17,7 +17,7 @@ class LossLogger:
         if len(self.loss)>100:
             loss = float(np.mean(self.loss[-100:]))
         else: 
-            loss = self.loss[-1]
+            loss = float(np.mean(self.loss))
         if loss < self.minLoss: 
             self.minLoss = loss 
             return True 
