@@ -3,7 +3,8 @@ import torchaudio
 from torch.utils.data import Dataset
 import pandas as pd
 import os
-
+import re
+import math
 
 """
 This function is to generate the dataframe structure of librispeech dataset
@@ -13,30 +14,48 @@ os.listdir, else it will be the id of speaker. DEFAULT True
 @return DataFrame: the DataFrame structure of dataset
 """
 
-def getLibriSpeechDataFrame(path: str,enumerateSpeaker:bool = True) -> pd.DataFrame:
+def getLibriSpeechDataFrame(
+        path: str,
+        enumerateSpeaker: bool = True,
+        sample_rate: int = 16000,
+        chunk_second_length: float = 2
+    ) -> pd.DataFrame:
     try:
-        df = pd.DataFrame([],columns=['speaker','audio_file'])
+        count = 0
+        data = []
         if path[-1] == '/':
             path = path[:-1]
-        speakers = os.listdir(path)
-        speakers = sorted(speakers,key = lambda x: int(x))
+        speakers = sorted(os.listdir(path), key=lambda x: int(x))
+        chunk_duration = int(chunk_second_length * sample_rate)
+        
         if enumerateSpeaker:
-            speakerMap = dict({int(speaker):idx for idx,speaker in enumerate(speakers)})
+            speakerMap = {int(speaker): idx for idx, speaker in enumerate(speakers)}
         else:
-            # This implement is not efficient about the memmory storage but it is not 
-            # affect too much, i implement like this for the easy understand code later
-            speakerMap = dict({int(speaker):int(speaker) for speaker in speakers})
+            speakerMap = {int(speaker): int(speaker) for speaker in speakers}
+
         for speaker in speakers:
-            audioFile = list([])
-            for chapter in os.listdir(f"{path}/{speaker}"):
-                audiofileList = list(filter(lambda x: 'txt' not in x,os.listdir(f'{path}/{speaker}/{chapter}')))
-                audiofileList = list(map(lambda x: (speakerMap[int(speaker)],f"{path}/{speaker}/{chapter}/{x}"),audiofileList))
-                audioFile += audiofileList
-            newRows = pd.DataFrame(audioFile,columns=['speaker','audio_file'])
-            df = pd.concat([df,newRows],axis=0)
-        return df
+            speaker_idx = speakerMap[int(speaker)]
+            speaker_path = os.path.join(path, speaker)
+            
+            for chapter in os.scandir(speaker_path):
+                if chapter.is_dir():
+                    chapter_path = chapter.path
+                    audio_files = [f.path for f in os.scandir(chapter_path) if f.is_file() and not f.name.endswith('.txt')]
+                    
+                    for audio_file in audio_files:
+                        audio_file = re.sub(r"\\","/",str(audio_file))
+                        audio_info = torchaudio.info(audio_file)
+                        audio_len = int(audio_info.num_frames)
+                        count+=1
+                        for i in range(0, audio_len - chunk_duration, chunk_duration):
+                            data.append((speaker_idx, audio_file, i, i + chunk_duration))
+        
+        df = pd.DataFrame(data, columns=['speaker', 'audio_file', 'from_idx', 'to_idx'])
+        print(f'Already process {count} audio file')
+        return df, count
+    
     except Exception as e:
-        msg = f"Got {str(e)} in the execution\nMaybe your librispeech file structure is not correct"
+        msg = f"Got {str(e)} in the execution. Maybe your librispeech file structure is not correct."
         raise RuntimeError(msg)
 
 
@@ -50,29 +69,23 @@ LibriSpeechDataset: Custom Dataset for loading and processing the LibriSpeech da
 @param str paddingStrategy: Strategy for padding shorter audio clips. DEFAULT "zeros"
 """
 class LibriSpeechDataset(Dataset):
-    def __init__(self, data: pd.DataFrame, sampleRate=16000, 
-                 maxAudioLength=10, windowSize = 2, 
-                 hopLength = 0.4 ,paddingStrategy="zeros"):
+    def __init__(self, data: pd.DataFrame,numFile:int, sampleRate=16000, 
+                 maxAudioLength=10,paddingStrategy="zeros"):
         super().__init__()
         self.data = data
         self.sampleRate = sampleRate
         self.maxAudioLength = maxAudioLength
+        self.maxAudioSamples = int(maxAudioLength*sampleRate)
         self.paddingStrategy = paddingStrategy
-        self.maxAudioSamples = int(self.sampleRate * self.maxAudioLength)
-        self.windowSize = int(windowSize*self.sampleRate)
-        self.hopLength = int(hopLength*self.sampleRate)
-        self.numWindowEachAudio = int((maxAudioLength-windowSize)/hopLength)
-        self.len = self.numWindowEachAudio*len(self.data)
+        self.cache = CacheData(numFile)
+        self.len = len(self.data)
         
     def __len__(self):
         return self.len
 
     def __getitem__(self, idx):
-        audioIdx = idx // self.numWindowEachAudio
-        windowIdx = idx % self.numWindowEachAudio
-
-        speaker, audioFile = self.data.iloc[audioIdx]
-        waveform, sampleRate = torchaudio.load(audioFile)
+        speaker, audio_file, from_idx, to_idx = self.data.iloc[idx]
+        waveform, sampleRate = self.cache.readFile(audio_file)
         if sampleRate != self.sampleRate:
             waveform = torchaudio.functional.resample(
                 waveform,
@@ -80,6 +93,7 @@ class LibriSpeechDataset(Dataset):
                 new_freq=self.sampleRate
                 )
         padding = 0
+        chunk = waveform[0,from_idx:to_idx].squeeze()
         if waveform.size(1) > self.maxAudioSamples:
             waveform = waveform[:, :self.maxAudioSamples]
         else:
@@ -90,7 +104,35 @@ class LibriSpeechDataset(Dataset):
                 padding = torch.randn(1,padding)/100
                 waveform = torch.cat([padding,waveform],dim=1)
         waveform = waveform.squeeze()
-        paddingMask = torch.zeros_like(waveform)
-        paddingMask[:padding] = 1
-        window = waveform[windowIdx*self.hopLength:windowIdx*self.hopLength+self.windowSize]
-        return window,waveform,paddingMask[windowIdx*self.hopLength:windowIdx*self.hopLength+self.windowSize] ,torch.tensor(speaker)
+
+        return waveform, chunk ,torch.tensor(speaker)
+    
+class CacheData:
+    def __init__(self,numFile:int,minimumBatch:int = 20,maximumBatch:int=64) -> None:
+        self.cacheSize = (2*numFile*math.log(2))/(minimumBatch*(minimumBatch-1))
+        self.cacheSize = int(math.ceil(self.cacheSize))*maximumBatch
+
+        self.hit = 0
+        self.miss = 0
+
+        self.keys = []
+        self.cache = {}
+    
+    def readFile(self,fileName):
+        audio = None 
+        rate = None 
+        try: 
+            audio,rate = self.cache[fileName]
+            self.hit += 1
+        except:
+            self.miss+=1
+            audio, rate = torchaudio.load(fileName)
+            if len(self.cache.keys()) < self.cacheSize:
+                self.cache[fileName] = (audio,rate)
+            else: 
+                deleted_key = self.keys[0]
+                self.cache.pop(deleted_key)
+                self.keys.pop(0)
+                self.cache[fileName] = (audio,rate)
+            self.keys.append(fileName)
+        return audio,rate
