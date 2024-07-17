@@ -58,7 +58,7 @@ class STFTLayer(nn.Module):
         n_pad_left = (self.n_fft - window.shape[0]) // 2
         n_pad_right = self.n_fft - window.shape[0] - n_pad_left
         stft_kwargs["window"] = torch.cat(
-            [torch.zeros(n_pad_left), window, torch.zeros(n_pad_right)], 0
+            [torch.zeros(n_pad_left,device=input.device), window, torch.zeros(n_pad_right,device=input.device)], 0
         )
 
         output = torch.stft(input,**stft_kwargs)
