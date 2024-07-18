@@ -18,7 +18,7 @@ class TF_Gridnet(nn.Module):
             output_kernel_size_F = 3,
             lstm_hidden_units=192,
             attn_n_head=4,
-            attn_approx_qk_dim=512,
+            qk_output_channel=4,
             emb_dim=48,
             emb_ks=4,
             emb_hs=1,
@@ -59,7 +59,7 @@ class TF_Gridnet(nn.Module):
                     emb_hop_size=emb_hs,
                     hidden_channels=lstm_hidden_units,
                     n_head=attn_n_head,
-                    approx_qk_dim=attn_approx_qk_dim,
+                    qk_output_channel=qk_output_channel,
                     activation=activation,
                     eps=eps
                 ) for _ in range(n_layers)
