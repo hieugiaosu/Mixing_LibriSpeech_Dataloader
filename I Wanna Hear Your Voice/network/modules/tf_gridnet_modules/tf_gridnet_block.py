@@ -145,8 +145,9 @@ class AllHeadPReLULayerNormalization4DCF(nn.Module):
 
     def forward(self, x):
         assert x.ndim == 4
-        B, _, T, _ = x.shape
-        x = x.view([B, self.H, self.E, T, self.n_freqs])
+        B, _, T, _ = x.shape # B, N_head*E, T,F
+        x = rearrange(x,"B (H E) T F -> B H E T F", H = self.H)
+        # x = x.view([B, self.H, self.E, T, self.n_freqs])
         x = self.act(x)  # [B,H,E,T,F]
         stat_dim = (2, 4)
         mu_ = x.mean(dim=stat_dim, keepdim=True)  # [B,H,1,T,1]
