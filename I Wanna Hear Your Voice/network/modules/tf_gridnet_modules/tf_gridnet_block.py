@@ -4,6 +4,11 @@ import torch.nn.functional as F
 from einops import rearrange
 import math
 
+if hasattr(torch, "bfloat16"):
+    HALF_PRECISION_DTYPES = (torch.float16, torch.bfloat16)
+else:
+    HALF_PRECISION_DTYPES = (torch.float16,)
+
 class IntraAndInterBandModule(nn.Module):
     def __init__(
             self, emb_dim:int = 48,
@@ -103,29 +108,32 @@ class IntraAndInterBandModule(nn.Module):
 
         return inter_rnn
 
-class LayerNormalization4DCF(nn.Module):
-    def __init__(self, input_dimension, eps=1e-5):
+class LayerNormalization(nn.Module):
+    def __init__(self, input_dim, dim=1, total_dim=4, eps=1e-5):
         super().__init__()
-        assert len(input_dimension) == 2
-        param_size = [1, input_dimension[0], 1, input_dimension[1]]
+        self.dim = dim if dim >= 0 else total_dim + dim
+        param_size = [1 if ii != self.dim else input_dim for ii in range(total_dim)]
         self.gamma = nn.Parameter(torch.Tensor(*param_size).to(torch.float32))
         self.beta = nn.Parameter(torch.Tensor(*param_size).to(torch.float32))
         nn.init.ones_(self.gamma)
         nn.init.zeros_(self.beta)
         self.eps = eps
 
+    @torch.cuda.amp.autocast(enabled=False)
     def forward(self, x):
-        if x.ndim == 4:
-            stat_dim = (1, 3)
+        if x.ndim - 1 < self.dim:
+            raise ValueError(
+                f"Expect x to have {self.dim + 1} dimensions, but got {x.ndim}"
+            )
+        if x.dtype in HALF_PRECISION_DTYPES:
+            dtype = x.dtype
+            x = x.float()
         else:
-            raise ValueError("Expect x to have 4 dimensions, but got {}".format(x.ndim))
-        mu_ = x.mean(dim=stat_dim, keepdim=True)  # [B,1,T,1]
-        std_ = torch.sqrt(
-            x.var(dim=stat_dim, unbiased=False, keepdim=True) + self.eps
-        )  # [B,1,T,F]
+            dtype = None
+        mu_ = x.mean(dim=self.dim, keepdim=True)
+        std_ = torch.sqrt(x.var(dim=self.dim, unbiased=False, keepdim=True) + self.eps)
         x_hat = ((x - mu_) / std_) * self.gamma + self.beta
-        return x_hat
-
+        return x_hat.to(dtype=dtype) if dtype else x_hat
 
 class AllHeadPReLULayerNormalization4DC(nn.Module):
     def __init__(self, input_dimension, eps=1e-5):
@@ -145,19 +153,13 @@ class AllHeadPReLULayerNormalization4DC(nn.Module):
     def forward(self, x):
         assert x.ndim == 4
         B, _, T, F = x.shape
-        print("origin:",x.shape)
         x = x.view([B, self.H, self.E, T, F])
         x = self.act(x)  # [B,H,E,T,F]
-        print("after prelu",x.shape)
         stat_dim = (2,)
         mu_ = x.mean(dim=stat_dim, keepdim=True)  # [B,H,1,T,1]
         std_ = torch.sqrt(
             x.var(dim=stat_dim, unbiased=False, keepdim=True) + self.eps
         )  # [B,H,1,T,1]
-        print('mu_:',mu_.shape)
-        print('std_:',std_.shape)
-        print("gamma",self.gamma.shape)
-        print("beta",self.beta.shape)
         x = ((x - mu_) / std_) * self.gamma + self.beta  # [B,H,E,T,F]
         return x
 
@@ -187,9 +189,9 @@ class CrossFrameSelfAttention(nn.Module):
         self.concat_proj = nn.Sequential(
             nn.Conv2d(emb_dim,emb_dim,1),
             getattr(nn,activation)(),
-            LayerNormalization4DCF((emb_dim, n_freqs), eps=eps)
+            LayerNormalization(emb_dim, dim=-3, total_dim=4, eps=eps),
         )
-        self.emb_dim = emb_dim
+        self.emb_dim = emb_dim  
         self.n_head = n_head
     def forward(self,x):
         """
@@ -203,6 +205,7 @@ class CrossFrameSelfAttention(nn.Module):
         Q = self.norm_Q(self.conv_Q(input)) # [B, n_head, C, T, Q]
         K = self.norm_K(self.conv_K(input))
         V = self.norm_V(self.conv_V(input))
+        
         Q = rearrange(Q, "B H C T Q -> (B H) T (C Q)")
         K = rearrange(K, "B H C T Q -> (B H) (C Q) T").contiguous()
         batch, n_head, channel, frame, freq = V.shape
