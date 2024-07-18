@@ -220,7 +220,7 @@ class TFGridnetBlock(nn.Module):
             n_freqs = 65,
             hidden_channels:int = 192,
             n_head=4,
-            approx_qk_dim=512,
+            qk_output_channel=4,
             activation="PReLU",
             eps = 1e-5
     ):
@@ -237,7 +237,7 @@ class TFGridnetBlock(nn.Module):
                 emb_dim=emb_dim,
                 n_freqs=n_freqs,
                 n_head=n_head,
-                approx_qk_dim=approx_qk_dim,
+                qk_output_channel=qk_output_channel,
                 activation=activation,
                 eps=eps
             )
