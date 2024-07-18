@@ -145,13 +145,19 @@ class AllHeadPReLULayerNormalization4DC(nn.Module):
     def forward(self, x):
         assert x.ndim == 4
         B, _, T, F = x.shape
+        print("origin:",x.shape)
         x = x.view([B, self.H, self.E, T, F])
         x = self.act(x)  # [B,H,E,T,F]
+        print("after prelu",x.shape)
         stat_dim = (2,)
         mu_ = x.mean(dim=stat_dim, keepdim=True)  # [B,H,1,T,1]
         std_ = torch.sqrt(
             x.var(dim=stat_dim, unbiased=False, keepdim=True) + self.eps
         )  # [B,H,1,T,1]
+        print('mu_:',mu_.shape)
+        print('std_:',std_.shape)
+        print("gamma",self.gamma.shape)
+        print("beta",self.beta.shape)
         x = ((x - mu_) / std_) * self.gamma + self.beta  # [B,H,E,T,F]
         return x
 
