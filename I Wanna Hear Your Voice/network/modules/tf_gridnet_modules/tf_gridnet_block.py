@@ -127,12 +127,12 @@ class LayerNormalization4DCF(nn.Module):
         return x_hat
 
 
-class AllHeadPReLULayerNormalization4DCF(nn.Module):
+class AllHeadPReLULayerNormalization4DC(nn.Module):
     def __init__(self, input_dimension, eps=1e-5):
         super().__init__()
-        assert len(input_dimension) == 3
-        H, E, n_freqs = input_dimension
-        param_size = [1, H, E, 1, n_freqs]
+        assert len(input_dimension) == 2, input_dimension
+        H, E = input_dimension
+        param_size = [1, H, E, 1, 1]
         self.gamma = nn.Parameter(torch.Tensor(*param_size).to(torch.float32))
         self.beta = nn.Parameter(torch.Tensor(*param_size).to(torch.float32))
         nn.init.ones_(self.gamma)
@@ -141,15 +141,13 @@ class AllHeadPReLULayerNormalization4DCF(nn.Module):
         self.eps = eps
         self.H = H
         self.E = E
-        self.n_freqs = n_freqs
 
     def forward(self, x):
         assert x.ndim == 4
-        B, _, T, _ = x.shape # B, N_head*E, T,F
-        x = rearrange(x,"B (H E) T F -> B H E T F", H = self.H)
-        # x = x.view([B, self.H, self.E, T, self.n_freqs])
+        B, _, T, F = x.shape
+        x = x.view([B, self.H, self.E, T, F])
         x = self.act(x)  # [B,H,E,T,F]
-        stat_dim = (2, 4)
+        stat_dim = (2,)
         mu_ = x.mean(dim=stat_dim, keepdim=True)  # [B,H,1,T,1]
         std_ = torch.sqrt(
             x.var(dim=stat_dim, unbiased=False, keepdim=True) + self.eps
@@ -163,24 +161,22 @@ class CrossFrameSelfAttention(nn.Module):
             emb_dim = 48,
             n_freqs = 65,
             n_head=4,
-            approx_qk_dim=512,
+            qk_output_channel=4,
             activation="PReLU",
             eps = 1e-5
 
     ):
         super().__init__()
         assert emb_dim % n_head == 0
-        E = math.ceil(
-            approx_qk_dim * 1.0 / n_freqs
-        )
+        E = qk_output_channel
         self.conv_Q = nn.Conv2d(emb_dim,n_head*E,1)
-        self.norm_Q = AllHeadPReLULayerNormalization4DCF((n_head, E, n_freqs), eps=eps)
+        self.norm_Q = AllHeadPReLULayerNormalization4DC((n_head, E), eps=eps)
 
         self.conv_K = nn.Conv2d(emb_dim,n_head*E,1)
-        self.norm_K = AllHeadPReLULayerNormalization4DCF((n_head, E, n_freqs), eps=eps)
+        self.norm_K = AllHeadPReLULayerNormalization4DC((n_head, E), eps=eps)
 
         self.conv_V = nn.Conv2d(emb_dim, emb_dim, 1)
-        self.norm_V = AllHeadPReLULayerNormalization4DCF((n_head, emb_dim // n_head, n_freqs), eps=eps)
+        self.norm_V = AllHeadPReLULayerNormalization4DC((n_head, emb_dim // n_head), eps=eps)
 
         self.concat_proj = nn.Sequential(
             nn.Conv2d(emb_dim,emb_dim,1),
