@@ -4,6 +4,9 @@ from ..modules.input_tranformation import STFTInput, RMSNormalizeInput
 from ..modules.output_transformation import WaveGeneratorByISTFT, RMSDenormalizeOutput
 from ..modules.convolution_module import SplitFeatureDeconv
 from ..modules.attention import *
+from .TF_gridnet import TF_Gridnet
+from einops import rearrange, repeat
+import math
 class TFGridFormer(nn.Module):
     def __init__(
             self,
@@ -195,3 +198,70 @@ class TFGridFormer(nn.Module):
         x = self.output_denormalize(x,std)
         if middle: return x[:,0], m
         return x[:,0]
+    
+class DoubleChannelTFGridNet(TF_Gridnet):
+    def __init__(self, 
+                #  n_srcs=2, 
+                 n_fft=128, 
+                 hop_length=64, 
+                 window="hann", 
+                 n_audio_channel=1, 
+                 n_layers=6, 
+                 input_kernel_size_T=3, 
+                 input_kernel_size_F=3, 
+                 output_kernel_size_T=3, 
+                 output_kernel_size_F=3, 
+                 lstm_hidden_units=192, 
+                 attn_n_head=4, 
+                 qk_output_channel=4, 
+                 emb_dim=48, 
+                 emb_ks=4, 
+                 emb_hs=1, 
+                 activation="PReLU", 
+                 eps=0.00001):
+        super().__init__(1, n_fft, hop_length, window, n_audio_channel*2, n_layers, input_kernel_size_T, input_kernel_size_F, output_kernel_size_T, output_kernel_size_F, lstm_hidden_units, attn_n_head, qk_output_channel, emb_dim, emb_ks, emb_hs, activation, eps)
+    def forward(self,input,condition):
+        x = input
+        c = condition
+
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        if c.dim() == 2:
+            c = c.unsqueeze(1)
+        tc = c.shape[-1]
+        tx = x.shape[-1]
+        if tc >= tx:
+            c = c[:,:,-tx:]
+        else:
+            n = math.ceil(tx/tc)
+            c = repeat(c,"b c t -> b c (t n)",n=n)
+            c = c[:,:,-tx:]
+        
+        mix_with_clue = torch.cat([x,c],dim=1)
+        o = super().forward(mix_with_clue)
+        return o[:,0]
+
+
+class TargerSpeakerTF(nn.Module):
+    def __init__(
+            self,
+            n_srcs=2,
+            n_fft=128,
+            hop_length=64,
+            window="hann",
+            n_audio_channel=1,
+            n_layers=6,
+            input_kernel_size_T = 3,
+            input_kernel_size_F = 3,
+            output_kernel_size_T = 3,
+            output_kernel_size_F = 3,
+            lstm_hidden_units=192,
+            attn_n_head=4,
+            qk_output_channel=4,
+            emb_dim=48,
+            emb_ks=4,
+            emb_hs=1,
+            activation="PReLU",
+            eps=1.0e-5,
+            ):
+        super().__init__()
