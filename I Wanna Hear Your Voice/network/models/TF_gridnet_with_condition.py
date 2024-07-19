@@ -69,7 +69,7 @@ class TFGridFormer(nn.Module):
                     eps=eps
                 )
         
-        mix_encode_layers = n_layers//2
+        mix_encode_layers = math.ceil(n_layers*2/3)
         mix_decode_layers = n_layers - mix_encode_layers
 
         self.mix_encoder = nn.Sequential(
@@ -134,8 +134,17 @@ class TFGridFormer(nn.Module):
             padding_F=output_kernel_size_F//2,
             padding_T=output_kernel_size_T//2
             )
+        
+        self.middle_deconv = TFGridnetDeconv(
+            emb_dim=emb_dim,
+            n_srcs=n_srcs,
+            kernel_size_T=output_kernel_size_T,
+            kernel_size_F=output_kernel_size_F,
+            padding_F=output_kernel_size_F//2,
+            padding_T=output_kernel_size_T//2
+            )
     
-    def forward(self,mix,ref):
+    def forward(self,mix,ref,middle = False):
         audio_length = mix.shape[-1]
 
         x = mix
@@ -161,6 +170,14 @@ class TFGridFormer(nn.Module):
 
         x = self.mix_encoder(x)
 
+        m = None
+        if middle:
+            m = self.middle_deconv(x)
+            m = rearrange(m,"B C N F T -> B N C F T")
+            m = self.istft(m,audio_length)
+            m = self.output_denormalize(m,std)
+
+
         x = self.split_layer(x)
 
         x = self.intra_frame_cross_att(c,x)
@@ -176,5 +193,5 @@ class TFGridFormer(nn.Module):
         x = self.istft(x,audio_length)
 
         x = self.output_denormalize(x,std)
-
+        if middle: return x[:,0], m
         return x[:,0]
