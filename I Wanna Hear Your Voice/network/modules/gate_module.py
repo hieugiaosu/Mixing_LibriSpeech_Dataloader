@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 class BandFilterGate(nn.Module):
     def __init__(self,emb_dim=48, n_freqs = 65):
@@ -9,7 +10,7 @@ class BandFilterGate(nn.Module):
         nn.init.xavier_normal_(self.alpha)
         nn.init.xavier_normal_(self.beta)
     def forward(self,input,filters,bias):
-        f = self.alpha*filters
-        b = self.beta*bias
+        f = F.sigmoid(self.alpha*filters)
+        b = F.tanh(self.beta*bias)
         return f*input + b
         
