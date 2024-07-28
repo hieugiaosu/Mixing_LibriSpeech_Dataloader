@@ -1,6 +1,7 @@
 from torch.nn.modules import Module
 from .utils import TrainingPipeline
-from ..criterion import SI_SDR_Loss, Mixture_constraint_loss
+from ..criterion.si_sdr import SI_SDR_Loss
+from ..criterion.mixture_constraint_loss import Mixture_constraint_loss
 from torch.cuda.amp import GradScaler, autocast
 import torch
 import time
