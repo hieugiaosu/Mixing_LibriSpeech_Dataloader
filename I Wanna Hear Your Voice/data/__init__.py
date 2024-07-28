@@ -1,3 +1,4 @@
+__package__="data"
 from .dataset import CacheTensor, LibriSpeech2MixDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
