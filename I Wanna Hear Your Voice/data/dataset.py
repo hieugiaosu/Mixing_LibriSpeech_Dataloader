@@ -77,7 +77,7 @@ class LibriSpeech2MixDataset(Dataset):
         if self.use_encoder:
             e = torch.tensor(self.embedding_model.embed_utterance(first_waveform.numpy())).float().cpu()
         else:
-            e = data['embedding']
+            e = eval(data['embedding'])
             e = torch.tensor(e).float()
 
         second_waveform,rate = self.file_source(mix_audio_file)
