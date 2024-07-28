@@ -108,6 +108,8 @@ class TargetSpeakerLOTH(nn.Module):
         embed = self.embed_to_feats_proj(spk_emb) #[B,C*F]
         embed = embed.reshape([x.shape[0], self.emb_dim, self.n_freqs]).unsqueeze(2) #[B, C, 1, F]
 
+        print(x.shape)
+        print(embed.shape)
         for i in range(self.n_layers):
             if i==1:
                 x = x*embed
