@@ -77,7 +77,7 @@ class TargetSpeakerLOTH(nn.Module):
 
         self.deconv = TFGridnetDeconv(
             emb_dim=emb_dim,
-            n_srcs=n_srcs,
+            n_srcs=1,
             kernel_size_T=output_kernel_size_T,
             kernel_size_F=output_kernel_size_F,
             padding_F=output_kernel_size_F//2,
@@ -118,7 +118,7 @@ class TargetSpeakerLOTH(nn.Module):
 
         x = rearrange(x,"B C N F T -> B N C F T") #becasue in istft, the 1 dim is for real and im part
 
-        # print(x.shape) 4,2,2,65,501
+        print(x.shape)
         x = self.istft(x,audio_length)
 
         x = self.output_denormalize(x,std)
