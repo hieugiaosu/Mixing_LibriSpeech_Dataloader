@@ -1,6 +1,6 @@
 from torch.nn.modules import Module
 from .utils import TrainingPipeline
-from criterion import SI_SDR_Loss,Mixture_constraint_loss
+from criterion import SingleSrcNegSDRScaledEst,Mixture_constraint_loss
 from torch.cuda.amp import GradScaler, autocast
 import torch
 import time
@@ -33,7 +33,7 @@ class FilterBandTFPipeline(TrainingPipeline):
             ):
         super().__init__(model, train_dataset, val_dataset, optimizer, optimizer_param, train_batch_size, val_batch_size, epochs, time_limit, device, using_multi_gpu, checkpoint_path, checkpoint_name, checkpoint_rate, patient, checkpoint_from_epoch, use_checkpoint)
         print("This pipeline is train in mixed precision")
-        self.si_sdr_fn = SI_SDR_Loss(reduction="mean")
+        self.si_sdr_fn = SingleSrcNegSDRScaledEst(reduction="mean")
         self.mixture_constraint_fn = Mixture_constraint_loss()
         self.scaler = GradScaler()
         self.warm_up = warm_up
