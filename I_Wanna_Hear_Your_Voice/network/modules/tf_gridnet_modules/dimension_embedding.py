@@ -8,7 +8,7 @@ class DimensionEmbedding(nn.Module):
             ) -> None:
         super().__init__()
         self.emb = nn.Sequential(
-            nn.Conv2d(audio_channel, emb_dim, kernel_size,padding=padding),
+            nn.Conv2d(2*audio_channel, emb_dim, kernel_size,padding=padding),
             nn.GroupNorm(1,emb_dim,eps=eps)
         )
     def forward(self,input):
