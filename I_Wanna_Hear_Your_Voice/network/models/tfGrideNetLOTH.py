@@ -118,8 +118,8 @@ class TargetSpeakerLOTH(nn.Module):
 
         x = rearrange(x,"B C N F T -> B N C F T") #becasue in istft, the 1 dim is for real and im part
 
+        print(x.shape)
         x = self.istft(x,audio_length)
 
         x = self.output_denormalize(x,std)
-        print(x.shape)
         return x[:,0]
