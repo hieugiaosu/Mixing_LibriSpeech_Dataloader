@@ -43,9 +43,9 @@ class TrainingPipeline(ABC):
         self.optimizer = getattr(optim,optimizer)(self.model.parameters(),**optimizer_param)
 
         if self.using_multi_gpu:
-            model = torch.nn.DataParallel(model)
+            self.model = torch.nn.DataParallel(self.model)
         
-        model.to(self.device)
+        self.model.to(self.device)
         self.checkpoint_file = checkpoint_path + checkpoint_name
         self.time_limit = time_limit
         self.epochs = epochs
