@@ -108,7 +108,7 @@ class TargetSpeakerLOTH(nn.Module):
         embed = self.embed_to_feats_proj(spk_emb) #[B,C*F]
         embed = embed.reshape([x.shape[0], self.emb_dim, self.n_freqs]).unsqueeze(2) #[B, C, 1, F]
         embed = embed.transpose(2,3)
-        
+
         for i in range(self.n_layers):
             if i==1:
                 x = x*embed
@@ -121,5 +121,5 @@ class TargetSpeakerLOTH(nn.Module):
         x = self.istft(x,audio_length)
 
         x = self.output_denormalize(x,std)
-
-        return x
+        print(x.shape)
+        return x[:,0]
