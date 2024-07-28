@@ -1,14 +1,16 @@
-from network.models import FilterBandTFGridnet
+from network.models import FilterBandTFGridnet, TargetSpeakerLOTH
 from data import getTrainAndValSetFromMetadata, KAGGLE_ROOT
 from training.FilterBandTFGridnetPipeline import FilterBandTFPipeline
 
 train_ds, val_ds = getTrainAndValSetFromMetadata(
     "data/metadata/small-train-clean.csv",
-    "your root to the data set folder",
+    "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100",
     test_size = 0.1                                            
     )
 
-model = FilterBandTFGridnet(n_layers=5)
+model = TargetSpeakerLOTH(n_layers=5)
+# model = FilterBandTFGridnet(n_layers=5)
+
 
 pipe = FilterBandTFPipeline(
     model = model, 
