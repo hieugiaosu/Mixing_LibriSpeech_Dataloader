@@ -8,8 +8,8 @@ train_ds, val_ds = getTrainAndValSetFromMetadata(
     test_size = 0.1                                            
     )
 
-model = TargetSpeakerLOTH(n_layers=5)
-# model = FilterBandTFGridnet(n_layers=5)
+# model = TargetSpeakerLOTH(n_layers=5)
+model = FilterBandTFGridnet(n_layers=5)
 
 
 pipe = FilterBandTFPipeline(
