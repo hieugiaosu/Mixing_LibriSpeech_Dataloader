@@ -4,7 +4,7 @@ from training.FilterBandTFGridnetPipeline import FilterBandTFPipeline
 
 train_ds, val_ds = getTrainAndValSetFromMetadata(
     "data/metadata/small-train-clean.csv",
-    "your root to the data set folder",
+    "/kaggle/input/librispeech",
     test_size = 0.1                                            
     )
 
