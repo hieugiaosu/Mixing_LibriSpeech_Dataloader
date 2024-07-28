@@ -515,5 +515,5 @@ class FilterBandTFGridnet(nn.Module):
         x = self.istft(x,audio_length)
 
         x = self.output_denormalize(x,std)
-
+        print(x.shape)
         return x[:,0]
