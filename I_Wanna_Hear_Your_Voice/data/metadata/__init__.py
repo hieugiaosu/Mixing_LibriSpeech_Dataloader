@@ -26,5 +26,6 @@ for filename in os.listdir(current_dir):
 
             CLUSTER_META_DATA[cluster_number] = cluster_meta
 
+SMALL_TRAIN_CLEAN_CSV = os.path.join(current_dir, "small-train-clean.csv")
 
-__all__ = ['CLUSTER_META_DATA']
+__all__ = ['CLUSTER_META_DATA','SMALL_TRAIN_CLEAN_CSV']

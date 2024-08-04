@@ -1,8 +1,7 @@
 import torch
 import torchaudio
 from pandas import DataFrame
-# from resemblyzer import VoiceEncoder
-VoiceEncoder = None
+from resemblyzer import VoiceEncoder
 from torch.utils.data import Dataset
 import os
 
