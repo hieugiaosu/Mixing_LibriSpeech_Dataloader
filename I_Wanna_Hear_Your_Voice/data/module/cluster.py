@@ -210,12 +210,14 @@ class Cluster:
             try:
                 idx = np.random.randint(0, len(self.data[self.__key_type(spk)]))
             except:
+                print(self.cluster_id,speaker_id,is_val)
                 idx = 0
             return self.read_file(int(spk), idx)
         else:
             try:
                 idx = np.random.randint(0, len(self.val_data[self.__key_type(spk)]))
             except:
+                print(self.cluster_id,speaker_id,is_val)
                 idx = 0
             return self.get_val_item_by_speaker(int(spk), idx)
 
