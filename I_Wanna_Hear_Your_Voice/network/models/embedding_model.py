@@ -8,7 +8,7 @@ class ResemblyzerVoiceEncoder:
         if audio.size() == 1:
             return torch.tensor(self.model.embed_utterance(audio.numpy())).float().cpu()
         else:
-            e = torch.stack([torch.tensor(self.model.embed_utterance(wav.numpy())).float().cpu()] 
-                            for wav in audio
+            e = torch.stack([torch.tensor(self.model.embed_utterance(wav.numpy())).float().cpu() 
+                            for wav in audio]
                             )
             return e
