@@ -10,13 +10,14 @@ class TrainDatasetWithCluster(Dataset):
         super().__init__()
 
         self.clusters = clusters
+        self.log = log
         self.cluster_size = [0]*(len(self.clusters)+1)
         self.num_speaker_per_cluster = num_speaker_per_cluster
         self.reset()
         self.embedding_model = embedding_model
         self.sampling_rate = sampling_rate
         self.augmentation = augmentation
-        self.log = log
+        
 
     def reset(self):
         for i in range(len(self.clusters)):
