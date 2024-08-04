@@ -176,7 +176,11 @@ class Cluster:
         else:
             ref_idx = idx
             while ref_idx == int(idx):
-                ref_idx = int(np.random.randint(0, len(self.data[self.__key_type(speaker)])))
+                try:
+                    ref_idx = int(np.random.randint(0, len(self.data[self.__key_type(speaker)])))
+                except:
+                    idx = 0
+                    break
             data = self.data[self.__key_type(speaker)][ref_idx]
             data_file = data['file'] if data['file'][0] != '/' else data['file'][1:]
             audio_file = os.path.join(self.root_path, data_file)
@@ -203,10 +207,16 @@ class Cluster:
         while spk == int(speaker_id):
             spk = int(np.random.choice(self.distance_meta['speaker']))
         if not is_val:
-            idx = np.random.randint(0, len(self.data[self.__key_type(spk)]))
+            try:
+                idx = np.random.randint(0, len(self.data[self.__key_type(spk)]))
+            except:
+                idx = 0
             return self.read_file(int(spk), idx)
         else:
-            idx = np.random.randint(0, len(self.val_data[self.__key_type(spk)]))
+            try:
+                idx = np.random.randint(0, len(self.val_data[self.__key_type(spk)]))
+            except:
+                idx = 0
             return self.get_val_item_by_speaker(int(spk), idx)
 
     def __len__(self):
