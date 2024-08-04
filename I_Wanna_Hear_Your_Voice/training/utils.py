@@ -24,7 +24,9 @@ class TrainingPipeline(ABC):
             checkpoint_rate = 1,
             patient = 3,
             checkpoint_from_epoch = 1,
-            use_checkpoint = None
+            use_checkpoint = None,
+            train_dataloader_class = DataLoader,
+            val_dataloader_class = DataLoader
             ):
         super().__init__()
         self.model = model
@@ -53,8 +55,8 @@ class TrainingPipeline(ABC):
         self.patient = patient
         self.checkpoint_from_epoch = checkpoint_from_epoch
 
-        self.train_loader = DataLoader(train_dataset,batch_size=train_batch_size,shuffle=True,drop_last=True)
-        self.val_loader = DataLoader(val_dataset,batch_size=val_batch_size,shuffle=False)
+        self.train_loader = train_dataloader_class(train_dataset,batch_size=train_batch_size,shuffle=True,drop_last=True)
+        self.val_loader = val_dataloader_class(val_dataset,batch_size=val_batch_size,shuffle=False)
 
     def checkpoint(self):
         if self.using_multi_gpu:
