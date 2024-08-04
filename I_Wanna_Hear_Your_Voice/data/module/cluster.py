@@ -56,6 +56,8 @@ class Cluster:
             self.val_data = {}
             for key, value in self.data.items():
                 val_num = int(len(value) * val_size)
+                if val_num == 0:
+                    val_num+=1
                 self.val_data[key] = value[-val_num:]
                 self.data[key] = value[:-val_num]
             self.val_idx = []
@@ -210,7 +212,7 @@ class Cluster:
             try:
                 idx = np.random.randint(0, len(self.data[self.__key_type(spk)]))
             except:
-                print(self.cluster_id,speaker_id,is_val)
+                print(self.cluster_id,spk,is_val)
                 idx = 0
             return self.read_file(int(spk), idx)
         else:
