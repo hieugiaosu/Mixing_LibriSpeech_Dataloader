@@ -2,3 +2,4 @@ test.py
 __pycache__
 demo/*
 model (2).pth
+*.log

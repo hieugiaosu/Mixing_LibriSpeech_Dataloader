@@ -92,3 +92,28 @@ def getLibriSpeech2MixDataFrame(
     except Exception as e:
         msg = f"Got {str(e)} in the execution. Maybe your librispeech file structure is not correct."
         raise RuntimeError(msg)
+
+def get_full_speaker_info_from_cluster(root_path,speaker_list = None, csv_file = None,chunk_second_length = 4, sample_rate=16000):
+    count = 0
+    if speaker_list is None:
+        df = pd.read_csv(csv_file)
+        speaker_list = df['speaker'].values.tolist()
+    chunk_duration = int(chunk_second_length * sample_rate)
+    data = {int(i):list([]) for i in speaker_list}
+    for speaker in speaker_list:
+        speaker_path = os.path.join(root_path, str(speaker))
+        for chapter in os.scandir(speaker_path):
+            if chapter.is_dir():
+                chapter_path = chapter.path
+                audio_files = [f.path for f in os.scandir(chapter_path) if f.is_file() and not f.name.endswith('.txt')]
+                for audio_file in audio_files:
+                    audio_file = re.sub(r"\\","/",str(audio_file))
+                    audio_info = torchaudio.info(audio_file)
+                    audio_len = int(audio_info.num_frames)
+                    audio_rate = audio_info.sample_rate
+                    audio_len = int(audio_len*sample_rate/audio_rate)
+                    count+=1
+                    for i in range(0, audio_len - chunk_duration, chunk_duration):
+                        data[int(speaker)].append({"file":re.sub(root_path,"",audio_file),"from":i,"to":i + chunk_duration})
+    print(f"process {count} files")
+    return data
