@@ -147,3 +147,28 @@ class CrossFrameCrossAttention(nn.Module):
         out = att + input
         out = rearrange(out, "B C T Q -> B C Q T")
         return out
+
+class CrossAttentionFilter(nn.Module):
+    def __init__(self, emb_dim = 48) -> None:
+        super().__init__()
+        self.emb_dim = emb_dim
+
+    def forward(self, q, k, v):
+        """
+        Args:
+            q (torch.Tensor): from the provious layer, [B D F T]
+            k (torch.Tensor): from the speaker embedidng encoder, [B D]
+            v (torch.Tensor): from the speaker embedidng encoder, [B D]
+        """
+
+        B, D, _, T = q.shape
+
+        q = rearrange(q, "B D F T -> (B T) F D")
+        k = repeat(k, "B D -> (B T) D 1", T = T)
+        v = repeat(v, "B D -> (B T) 1 D", T = T)
+
+        qkT = torch.matmul(q, k)/(D**0.5)   # [(B T) F 1]
+        qkT = F.softmax(qkT, dim=-1)
+        att = torch.matmul(qkT, v)      # [(B T) F D]
+        att = rearrange(att, "(B T) F D -> B D F T", B = B, T = T)
+        return att

@@ -3,3 +3,5 @@ __pycache__
 demo/*
 model (2).pth
 *.log
+modal/*
+checkpoints/*
