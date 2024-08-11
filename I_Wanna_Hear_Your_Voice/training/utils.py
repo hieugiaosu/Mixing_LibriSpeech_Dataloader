@@ -26,7 +26,8 @@ class TrainingPipeline(ABC):
             checkpoint_from_epoch = 1,
             use_checkpoint = None,
             train_dataloader_class = DataLoader,
-            val_dataloader_class = DataLoader
+            val_dataloader_class = DataLoader,
+            checkpoint_call_back = None
             ):
         super().__init__()
         self.model = model
@@ -57,12 +58,16 @@ class TrainingPipeline(ABC):
 
         self.train_loader = train_dataloader_class(train_dataset,batch_size=train_batch_size,shuffle=True,drop_last=True)
         self.val_loader = val_dataloader_class(val_dataset,batch_size=val_batch_size,shuffle=False)
+        self.checkpoint_call_back = checkpoint_call_back
 
     def checkpoint(self):
         if self.using_multi_gpu:
             torch.save(self.model.module.state_dict(),self.checkpoint_file)
         else:
             torch.save(self.model.state_dict(),self.checkpoint_file)
+
+        if self.checkpoint_call_back is not None:
+            self.checkpoint_call_back()
     
     def set_epochs(self,epochs):
         self.epochs = epochs

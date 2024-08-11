@@ -33,9 +33,10 @@ class FilterBandTFPipeline(TrainingPipeline):
             use_checkpoint=None,
             train_dataloader_class = DataLoader,
             val_dataloader_class = DataLoader,
-            warm_up = 3
+            warm_up = 3,
+            checkpoint_call_back = None
             ):
-        super().__init__(model, train_dataset, val_dataset, optimizer, optimizer_param, train_batch_size, val_batch_size, epochs, time_limit, device, using_multi_gpu, checkpoint_path, checkpoint_name, checkpoint_rate, patient, checkpoint_from_epoch, use_checkpoint, train_dataloader_class, val_dataloader_class)
+        super().__init__(model, train_dataset, val_dataset, optimizer, optimizer_param, train_batch_size, val_batch_size, epochs, time_limit, device, using_multi_gpu, checkpoint_path, checkpoint_name, checkpoint_rate, patient, checkpoint_from_epoch, use_checkpoint, train_dataloader_class, val_dataloader_class,checkpoint_call_back)
         print("This pipeline is train in mixed precision")
         self.si_sdr_fn = SingleSrcNegSDRScaledEst(reduction="mean")
         self.mixture_constraint_fn = Mixture_constraint_loss()
