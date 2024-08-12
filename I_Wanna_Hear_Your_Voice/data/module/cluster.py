@@ -139,6 +139,7 @@ class Cluster:
         if logging:
             with open(os.path.join(path_log, f"cluster_{self.cluster_id}.log"), mode='a') as f:
                 f.writelines(f"reset <choose new speaker>: {self.chosen_speakers}\n")
+                print(f"reset <choose new speaker>: {self.chosen_speakers}")
 
     def __getitem__(self, idx):
         """

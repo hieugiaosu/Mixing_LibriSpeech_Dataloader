@@ -23,7 +23,7 @@ class TrainDatasetWithCluster(Dataset):
         for i in range(len(self.clusters)):
             self.clusters[i].reset(self.num_speaker_per_cluster,self.log)
             self.cluster_size[i+1] = len(self.clusters[i]) + self.cluster_size[i]
-        
+
     def __len__(self): return self.cluster_size[-1]
 
     def __getitem__(self,idx):
