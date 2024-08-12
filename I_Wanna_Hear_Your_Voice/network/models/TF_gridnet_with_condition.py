@@ -582,13 +582,12 @@ class FilterBandTFGridnetWithAttentionGate(nn.Module):
             ]
         )
 
-        self.key_gen = nn.Linear(conditional_dim,emb_dim)
-        self.value_gen = nn.Linear(conditional_dim,emb_dim)
+        self.query_gen = nn.Linear(conditional_dim,emb_dim*n_freqs)
 
 
         self.attentions = nn.ModuleList(
             [
-                CrossAttentionFilter(emb_dim)
+                CrossAttentionFilterV2(emb_dim)
                 for _ in range(n_layers)
             ]
         )
@@ -619,15 +618,14 @@ class FilterBandTFGridnetWithAttentionGate(nn.Module):
         x = self.dimension_embedding(x)
 
         n_freqs = x.shape[-2]
-        k = self.key_gen(clue)
-        v = self.value_gen(clue)
-        # f = rearrange(f,"b (d q) -> b d q 1", q = n_freqs)
-        # b = rearrange(b,"b (d q) -> b d q 1", q = n_freqs)
+
+        q = self.query_gen(clue)
+        q = rearrange(q,"b (d f) -> b f d", f=n_freqs)
 
         for i in range(self.n_layers):
 
             x = self.tf_gridnet_block[i](x)
-            x = self.attentions[i](x,k,v)
+            x = self.attentions[i](q,x)
 
         x = self.deconv(x)
 

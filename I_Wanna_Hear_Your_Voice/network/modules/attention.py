@@ -172,3 +172,26 @@ class CrossAttentionFilter(nn.Module):
         att = torch.matmul(qkT, v)      # [(B T) F D]
         att = rearrange(att, "(B T) F D -> B D F T", B = B, T = T)
         return att
+    
+class CrossAttentionFilterV2(nn.Module):
+    def __init__(self, emb_dim = 48) -> None:
+        super().__init__()
+        self.emb_dim = emb_dim
+    def forward(self,q, kv):
+        """
+        Args:
+        q: torch.Tensor, [B F D] a query for cross attention, come from the reference encoder (speaker embedding)
+        kv: torch.Tensor, [B D F T] a key and value for cross attention, come from the output of previous layer (TF gridnet)
+        """
+
+        B, D, _, T = kv.shape
+
+        Q = repeat(q, "B F D -> (B T) F D", T = T)
+        K = rearrange(kv, "B D F T -> (B T) D F")
+        V = rearrange(kv, "B D F T -> (B T) F D")
+
+        qkT = torch.matmul(Q,K)/(D**0.5) #[(B T) F F]
+        qkT = F.softmax(qkT, dim=-1)
+        att = torch.matmul(qkT, V)      # [(B T) F D]
+        att = rearrange(att, "(B T) F D -> B D F T", B = B, T = T)
+        return att
