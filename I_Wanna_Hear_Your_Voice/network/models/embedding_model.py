@@ -1,7 +1,6 @@
 import torch
 from resemblyzer import VoiceEncoder
 
-
 class ResemblyzerVoiceEncoder:
     def __init__(self, device) -> None:
         self.model = VoiceEncoder(device)
