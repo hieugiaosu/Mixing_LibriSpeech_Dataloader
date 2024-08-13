@@ -5,3 +5,4 @@ model (2).pth
 *.log
 modal/*
 checkpoints/*
+*.pth
