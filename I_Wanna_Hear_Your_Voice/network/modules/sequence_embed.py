@@ -46,7 +46,6 @@ class SequenceEmbed(nn.Module):
             ref: (B, D, F, T) embedding tensor previous layer
         """
         B, D, n_freq, T = x.shape
-        print(x.shape,ref.shape)
         input = torch.cat([x,ref],dim=1)
         input = self.conv(input)
         input = rearrange(input,'B D F T -> B (D F) T')

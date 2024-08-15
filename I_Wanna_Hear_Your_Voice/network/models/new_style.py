@@ -221,11 +221,8 @@ class EncoderSPlitDecoder(nn.Module):
             eps=eps
         )
     def forward(self,input,ref):
-        print(input.shape,ref.shape)
         x, std, audio_length = self.encoder(input)
         ref_i ,_ ,_ = self.encoder(ref)
-
-        print(x.shape,ref_i.shape)
 
         f,b = self.sequence_embed(x,ref_i)
 
