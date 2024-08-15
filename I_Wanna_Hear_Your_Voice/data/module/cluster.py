@@ -20,7 +20,7 @@ class Cluster:
         distribute = e / e.sum(0)
         return distribute
 
-    def __init__(self, cluster_id: int, distance_meta_data: str, root_path: str, data=None, cluster_meta=None, sampling_rate=16000, val_size=0):
+    def __init__(self, cluster_id: int, distance_meta_data: str, root_path: str, data=None, cluster_meta=None, sampling_rate=16000, val_size=0, use_ratio = 1):
         """
         Initialize the Cluster object.
         
@@ -52,14 +52,16 @@ class Cluster:
         }
 
         self.val_size = val_size
+        self.use_ratio = use_ratio
         if val_size != 0:
             self.val_data = {}
             for key, value in self.data.items():
-                val_num = int(len(value) * val_size)
+                val_num = int(len(value) *self.use_ratio * val_size)
                 if val_num == 0:
                     val_num+=1
+                train_num = int(len(value) *self.use_ratio) - val_num
                 self.val_data[key] = value[-val_num:]
-                self.data[key] = value[:-val_num]
+                self.data[key] = value[:train_num]
             self.val_idx = []
             for spk in self.distance_meta["speaker"]:
                 self.val_idx += [(spk, idx) for idx in range(len(self.val_data[self.__key_type(spk)]))]
