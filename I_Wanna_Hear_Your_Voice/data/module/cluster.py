@@ -3,6 +3,7 @@ import torchaudio
 import pandas as pd
 import numpy as np
 import os
+import math
 
 class Cluster:
     def __np_softmax(self, data):
@@ -59,7 +60,7 @@ class Cluster:
                 val_num = int(len(value) *self.use_ratio * val_size)
                 if val_num == 0:
                     val_num+=1
-                train_num = int(len(value) *self.use_ratio) - val_num
+                train_num = int(math.ceil(len(value) *self.use_ratio)) - val_num
                 self.val_data[key] = value[-val_num:]
                 self.data[key] = value[:train_num]
             self.val_idx = []
