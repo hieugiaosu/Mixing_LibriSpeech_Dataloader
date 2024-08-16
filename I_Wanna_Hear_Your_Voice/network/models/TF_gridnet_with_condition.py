@@ -503,6 +503,7 @@ class FilterBandTFGridnet(nn.Module):
         f = rearrange(f,"b (d q) -> b d q 1", q = n_freqs)
         b = rearrange(b,"b (d q) -> b d q 1", q = n_freqs)
 
+        x = x.transpose(-2, -1)
         for i in range(self.n_layers):
 
             x = self.tf_gridnet_block[i](x)
