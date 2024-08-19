@@ -44,7 +44,10 @@ class TrainDatasetWithCluster(Dataset):
         second_audio = self.clusters[np.random.randint(0,len(self.clusters))].get_mix_for_speaker(int(speaker),False)
         second_audio = torchaudio.functional.resample(second_audio,16000,self.sampling_rate)
         snr_rate = torch.randint(0,5,(1,))[0]
-        mix = torchaudio.functional.add_noise(audio,second_audio,snr_rate)
+        if np.random.uniform() < 0.5:
+            mix = torchaudio.functional.add_noise(audio,second_audio,snr_rate)
+        else:
+            mix = torchaudio.functional.add_noise(second_audio,audio,snr_rate)
         if self.augmentation is not None:
             mix = self.augmentation(mix)
         
@@ -74,7 +77,8 @@ class ValDatasetWithCluster(Dataset):
                 idx -= self.cluster_size[i - 1]
                 break
         audio, speaker_id = cluster.get_val_item(idx)
-        e = self.embedding_model(audio)
+        ref_audio = cluster.get_val_item_by_speaker(speaker_id,0)
+        e = self.embedding_model(ref_audio)
 
         audio = torchaudio.functional.resample(audio,16000,self.sampling_rate)
         second_audio = self.clusters[np.random.randint(0,len(self.clusters))].get_mix_for_speaker(int(speaker_id),True)

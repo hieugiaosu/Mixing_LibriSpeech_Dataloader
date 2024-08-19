@@ -7,3 +7,5 @@ model/speaker_embedding/model-weights/*
 model/seperate_speech/model-weight/*
 testing.py
 dataset.ipynb
+*.zip
+wham_noise/
