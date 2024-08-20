@@ -134,7 +134,7 @@ class Wsj02MixDataset(Dataset):
         data = self.data.iloc[idx]
         sources = [sf.read(Path(self.root) / data[f"s_{i}"], dtype = "float32")[0] for i in range(self.n_srcs)]
         snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
-        ref_audio = sf.read(Path(self.root) / data["ref_audio"], dtype = "float32")[0]
+        ref_audio = sf.read(Path(self.root) / data["ref_audio_0"], dtype = "float32")[0]
 
         resampled_sources = [resample_poly(s, self.samplerate, FS_ORIG) for s in sources]
         resampled_ref = resample_poly(ref_audio, self.samplerate, FS_ORIG)
