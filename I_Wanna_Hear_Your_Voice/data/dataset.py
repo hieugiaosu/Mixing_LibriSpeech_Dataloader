@@ -1,11 +1,16 @@
 import torch
 import torchaudio
 from pandas import DataFrame
-# from resemblyzer import VoiceEncoder
+from resemblyzer import VoiceEncoder
 VoiceEncoder = None
 from torch.utils.data import Dataset
 import os
-
+import soundfile as sf
+from scipy.signal import resample_poly
+from tqdm import tqdm
+from pathlib import Path
+import numpy as np
+FS_ORIG = 16000
 class CacheTensor:
     def __init__(self,cacheSize:int,miss_handler) -> None:
         self.cacheSize = cacheSize
@@ -93,3 +98,75 @@ class LibriSpeech2MixDataset(Dataset):
         
         mix_waveform = torchaudio.functional.add_noise(first_waveform,second_waveform,torch.tensor(1))
         return {"mix":mix_waveform, "src0": first_waveform, "src1":second_waveform, "ref0":ref_waveform, "emb0": e}
+    
+
+
+
+class Wsj02MixDataset(Dataset):
+    def __init__(
+            self, 
+            df: DataFrame,
+            root = '', 
+            sample_rate:int = 8000,
+            using_cache = False,
+            cache_size = 1,
+            device = 'cuda',
+            mode = "max",
+            n_srcs = 2,
+            ):
+        super().__init__()
+        self.data = df
+        self.sample_rate = sample_rate
+        self.root = root
+        self.device = device
+        self.n_srcs = n_srcs
+        if not using_cache or cache_size == 1:
+            self.file_source = torchaudio.load
+        else: 
+            self.file_source = CacheTensor(cache_size, torchaudio.load)
+        if 'embedding' not in df.columns:
+            self.use_encoder = True
+            self.embedding_model = VoiceEncoder(device = device)
+        else:
+            self.use_encoder = False
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        data = self.data.iloc[idx]
+        ref_file = os.join(self.root, data['ref_audio'])
+        sources = [sf.read(Path(self.root / data[f"s_{i}"]), dtype = "float32")[0] for i in range(self.n_srcs)]
+        snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
+        ref_audio = sf.read(Path(self.root / data["ref_audio"]), dtype = "float32")[0]
+
+        resampled_sources = [resample_poly(s, self.samplerate, FS_ORIG) for s in sources]
+        resampled_ref = resample_poly(ref_audio, self.samplerate, FS_ORIG)
+
+        min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
+        padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
+        # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
+
+        activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
+        scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
+
+        sources_np = np.stack(scaled_sources, axis=0)
+        mix_np = np.sum(sources_np, axis=0)
+
+        e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref.numpy())).float().cpu()
+
+        if self.mode == "max":
+            gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
+            mix_np_max = mix_np / gain
+            sources_np_max = sources_np / gain
+            return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "ref0": ref_audio, "emb0": e}
+
+        if self.mode == "min":
+            sources_np = sources_np[:,:min_len]
+            mix_np = mix_np[:min_len]
+            gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
+            mix_np /= gain
+            sources_np /= gain
+            return {"mix": mix_np[:min_len], "src0": sources_np[0][:min_len], "src1": sources_np[1][:min_len], "ref0": ref_audio, "emb0": e}
+        # mix_waveform = torchaudio.functional.add_noise(first_waveform,second_waveform,torch.tensor(1))
+  
+    

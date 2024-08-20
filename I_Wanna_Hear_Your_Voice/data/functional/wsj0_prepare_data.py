@@ -33,7 +33,7 @@ class Wsj0Metadata():
         mix_df['ref_audio_0'] = mix_df['s_0'].apply(lambda x: random.choice(self.get_similar_files(x, all_files)))
 
         # Create the new snr_ref column
-        mix_df['snr_ref'] = mix_df['snr_0']
+        mix_df['snr_ref'] = mix_df['snr_0'] 
         
         mix_df.to_csv(self.output_path, index = False)
 
