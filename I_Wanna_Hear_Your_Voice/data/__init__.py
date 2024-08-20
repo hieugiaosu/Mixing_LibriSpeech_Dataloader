@@ -1,9 +1,9 @@
 __package__="data"
-from .dataset import CacheTensor, LibriSpeech2MixDataset
+from .dataset import CacheTensor, LibriSpeech2MixDataset, Wsj02MixDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
-KAGGLE_ROOT = "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100/"
-
+# KAGGLE_ROOT = "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100/"
+KAGGLE_ROOT = "/kaggle/input/wsj0-2mix/wsj0"
 def getDataFrameFromMetadata(path) -> pd.DataFrame:
     return pd.read_csv(path)
 
@@ -38,3 +38,29 @@ def getTrainAndValSetFromMetadata(
         device=device
     )
     return train_ds, val_ds
+
+
+def getTrainAndValSetFromMetadataWSJ0(
+        path,
+        data_source_root,
+        test_size = 0.1,
+        random_state = 142, 
+        shuffle = True,
+        sample_rate=8000,
+        using_cache = True,
+        cache_size = 1,
+        device = 'cpu'
+        ):
+    df = getDataFrameFromMetadata(path)
+
+    ds = Wsj02MixDataset(
+        df,
+        root=data_source_root,
+        sample_rate=sample_rate,
+        using_cache=using_cache,
+        cache_size=cache_size,
+        device=device
+    )
+
+    
+    return ds
