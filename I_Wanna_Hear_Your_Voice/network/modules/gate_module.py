@@ -13,6 +13,7 @@ class BandFilterGate(nn.Module):
         f = F.sigmoid(self.alpha*filters)
         b = F.tanh(self.beta*bias)
         print(1111)
+        print(input.shape)
         print(f.shape)
         print(b.shape)
         print(2222)

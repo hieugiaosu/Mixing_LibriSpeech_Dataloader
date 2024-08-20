@@ -140,14 +140,14 @@ class Wsj02MixDataset(Dataset):
         min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
         # padded_sources = [p[:64000] for p in padded_sources]
-        # resampled_ref = resampled_ref[: 64000]
+        resampled_ref = resampled_ref[: 64000]
         
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
         activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
-        # scaled_sources = [s[: 64000] for s in scaled_sources]
+        scaled_sources = [s[: 64000] for s in scaled_sources]
         # print(1111)
         # print(len(scaled_sources[0]))
         # print(len(scaled_sources[1]))
