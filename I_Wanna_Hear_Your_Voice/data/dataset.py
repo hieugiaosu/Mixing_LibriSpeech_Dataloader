@@ -119,10 +119,7 @@ class Wsj02MixDataset(Dataset):
         self.device = device
         self.n_srcs = n_srcs
         self.mode = mode
-        if not using_cache or cache_size == 1:
-            self.file_source = torchaudio.load
-        else: 
-            self.file_source = CacheTensor(cache_size, torchaudio.load)
+
         if 'embedding' not in df.columns:
             self.use_encoder = True
             self.embedding_model = VoiceEncoder(device = device)
@@ -149,6 +146,14 @@ class Wsj02MixDataset(Dataset):
 
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
+
+        print(1111)
+        print(len(scaled_sources[0]))
+        print(len(scaled_sources[1]))
+        print(data["s_0"])
+        print(data["s_1"])
+        print(data["ref_audio_0"])
+        print(2222)
 
         e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
