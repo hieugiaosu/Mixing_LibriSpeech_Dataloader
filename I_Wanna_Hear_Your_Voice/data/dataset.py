@@ -118,6 +118,7 @@ class Wsj02MixDataset(Dataset):
         self.root = root
         self.device = device
         self.n_srcs = n_srcs
+        self.mode = mode
         if not using_cache or cache_size == 1:
             self.file_source = torchaudio.load
         else: 
