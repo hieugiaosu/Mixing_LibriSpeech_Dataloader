@@ -487,7 +487,9 @@ class FilterBandTFGridnet(nn.Module):
         audio_length = input.shape[-1]
 
         x = input
-
+        print("input length")
+        print(x.shape)
+        print("input length 1")
         if x.dim() == 2:
             x = x.unsqueeze(1)
 
