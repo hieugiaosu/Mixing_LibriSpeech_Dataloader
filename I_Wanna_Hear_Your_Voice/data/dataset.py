@@ -136,8 +136,8 @@ class Wsj02MixDataset(Dataset):
         snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
         ref_audio = sf.read(Path(self.root) / data["ref_audio_0"], dtype = "float32")[0]
 
-        resampled_sources = [resample_poly(s, self.samplerate, FS_ORIG) for s in sources]
-        resampled_ref = resample_poly(ref_audio, self.samplerate, FS_ORIG)
+        resampled_sources = [resample_poly(s, self.sample_rate, FS_ORIG) for s in sources]
+        resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
 
         min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
