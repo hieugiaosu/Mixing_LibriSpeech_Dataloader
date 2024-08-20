@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 class TrainDatasetWithCluster(Dataset):
-    def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000, log = True) -> None:
+    def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000, log = True, emb_mix = False) -> None:
         super().__init__()
 
         self.clusters = clusters
@@ -17,7 +17,7 @@ class TrainDatasetWithCluster(Dataset):
         self.embedding_model = embedding_model
         self.sampling_rate = sampling_rate
         self.augmentation = augmentation
-        
+        self.emb_mix = emb_mix        
 
     def reset(self):
         for i in range(len(self.clusters)):
@@ -50,11 +50,14 @@ class TrainDatasetWithCluster(Dataset):
             mix = torchaudio.functional.add_noise(second_audio,audio,snr_rate)
         if self.augmentation is not None:
             mix = self.augmentation(mix)
-        
+        if self.emb_mix:
+            mix_16k = torchaudio.functional.resample(mix,8000,16000)
+            e_mix = self.embedding_model(mix_16k)
+            e = torch.cat([e,e_mix],dim=0)
         return {"mix":mix,"src0":audio,"emb0":e}
     
 class ValDatasetWithCluster(Dataset):
-    def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000) -> None:
+    def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000, emb_mix = False) -> None:
         super().__init__()
 
         self.clusters = clusters
@@ -66,6 +69,8 @@ class ValDatasetWithCluster(Dataset):
 
         for i in range(len(self.clusters)):
             self.cluster_size[i+1] = self.clusters[i].len_val_set() + self.cluster_size[i]
+        
+        self.emb_mix = emb_mix
         
     def __len__(self): return self.cluster_size[-1]
 
@@ -84,11 +89,16 @@ class ValDatasetWithCluster(Dataset):
         second_audio = self.clusters[np.random.randint(0,len(self.clusters))].get_mix_for_speaker(int(speaker_id),True)
         second_audio = torchaudio.functional.resample(second_audio,16000,self.sampling_rate)
         snr_rate = torch.randint(0,5,(1,))[0]
-        
-        mix = torchaudio.functional.add_noise(audio,second_audio,snr_rate)
+        if np.random.uniform() < 0.5:
+            mix = torchaudio.functional.add_noise(audio,second_audio,snr_rate)
+        else:
+            mix = torchaudio.functional.add_noise(second_audio,audio,snr_rate)
         if self.augmentation is not None:
             mix = self.augmentation(mix)
-        
+        if self.emb_mix:
+            mix_16k = torchaudio.functional.resample(mix,8000,16000)
+            e_mix = self.embedding_model(mix_16k)
+            e = torch.cat([e,e_mix],dim=0)
         return {"mix":mix,"src0":audio,"emb0":e}
 
 class TrainDataLoaderWithCluster(DataLoader):
