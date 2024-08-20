@@ -12,10 +12,5 @@ class BandFilterGate(nn.Module):
     def forward(self,input,filters,bias):
         f = F.sigmoid(self.alpha*filters)
         b = F.tanh(self.beta*bias)
-        print(1111)
-        print(input.shape)
-        print(f.shape)
-        print(b.shape)
-        print(2222)
         return f*input + b
         
