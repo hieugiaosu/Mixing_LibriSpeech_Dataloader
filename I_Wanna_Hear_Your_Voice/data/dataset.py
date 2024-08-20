@@ -158,6 +158,7 @@ class Wsj02MixDataset(Dataset):
    
         e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
+        print(e.shape)
         if self.mode == "max":
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain

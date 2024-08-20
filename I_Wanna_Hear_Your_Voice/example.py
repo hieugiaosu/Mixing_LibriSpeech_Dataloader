@@ -1,7 +1,7 @@
 from network.models import FilterBandTFGridnet, TargetSpeakerLOTH
 from data import getTrainAndValSetFromMetadata, KAGGLE_ROOT, getTrainAndValSetFromMetadataWSJ0
 from training.FilterBandTFGridnetPipeline import FilterBandTFPipeline
-
+import sys
 # train_ds, val_ds = getTrainAndValSetFromMetadata(
 #     "data/metadata/small-train-clean.csv",
 #     "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100",
@@ -32,7 +32,7 @@ pipe = FilterBandTFPipeline(
     val_batch_size=1, 
     epochs=200, 
     time_limit=3600*12 - 360, 
-    device='cuda', 
+    device="cuda", 
     using_multi_gpu=True, 
     checkpoint_path="./", 
     checkpoint_name="FilterBandTFGridnet.pth", 

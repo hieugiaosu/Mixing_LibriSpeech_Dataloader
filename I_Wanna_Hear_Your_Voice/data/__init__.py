@@ -16,7 +16,7 @@ def getTrainAndValSetFromMetadata(
         sample_rate=8000,
         using_cache = True,
         cache_size = 1,
-        device = 'cpu'
+        device = 'cuda'
         ):
     df = getDataFrameFromMetadata(path)
     train_df, val_df = train_test_split(df,test_size=test_size,random_state=random_state,shuffle=shuffle)
