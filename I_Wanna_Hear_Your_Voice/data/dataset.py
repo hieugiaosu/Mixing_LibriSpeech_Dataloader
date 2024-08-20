@@ -167,8 +167,9 @@ class Wsj02MixDataset(Dataset):
             print(len(mix_np_max))
             print(len(sources_np_max[0]))
             print(len(sources_np_max[1]))
+            print(e.shape)
             print("length 1")
-            return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "ref0": ref_audio, "emb0": e}
+            return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
         if self.mode == "min":
             sources_np = sources_np[:,:min_len]
