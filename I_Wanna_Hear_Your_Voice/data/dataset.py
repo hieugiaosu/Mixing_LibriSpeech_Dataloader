@@ -149,7 +149,7 @@ class Wsj02MixDataset(Dataset):
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
 
-        e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref.numpy())).float().cpu()
+        e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
         if self.mode == "max":
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
