@@ -3,7 +3,7 @@ from .dataset import CacheTensor, LibriSpeech2MixDataset, Wsj02MixDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
 # KAGGLE_ROOT = "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100/"
-KAGGLE_ROOT = "/kaggle/input/wsj0-2mix/wsj0"
+KAGGLE_ROOT = "/kaggle/input/wsj0-2mix/"
 def getDataFrameFromMetadata(path) -> pd.DataFrame:
     return pd.read_csv(path)
 
