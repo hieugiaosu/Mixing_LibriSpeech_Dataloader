@@ -132,7 +132,6 @@ class Wsj02MixDataset(Dataset):
     
     def __getitem__(self, idx):
         data = self.data.iloc[idx]
-        ref_file = os.join(self.root, data['ref_audio'])
         sources = [sf.read(Path(self.root / data[f"s_{i}"]), dtype = "float32")[0] for i in range(self.n_srcs)]
         snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
         ref_audio = sf.read(Path(self.root / data["ref_audio"]), dtype = "float32")[0]
