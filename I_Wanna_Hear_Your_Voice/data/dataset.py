@@ -144,9 +144,6 @@ class Wsj02MixDataset(Dataset):
         activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
-        sources_np = np.stack(scaled_sources, axis=0)
-        mix_np = np.sum(sources_np, axis=0)
-
         print(1111)
         print(len(scaled_sources[0]))
         print(len(scaled_sources[1]))
@@ -154,6 +151,11 @@ class Wsj02MixDataset(Dataset):
         print(data["s_1"])
         print(data["ref_audio_0"])
         print(2222)
+        
+        sources_np = np.stack(scaled_sources, axis=0)
+        mix_np = np.sum(sources_np, axis=0)
+
+        
 
         e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
