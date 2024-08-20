@@ -139,29 +139,19 @@ class Wsj02MixDataset(Dataset):
 
         min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
+        padded_sources = padded_sources[: 64000]
+        resampled_ref = resampled_ref[:64000]
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
         activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
-        print(2222)
-        print(len(scaled_sources[0]))
-        print(len(scaled_sources[1]))
-        print(data["s_0"])
-        print(data["s_1"])
-        print(data["ref_audio_0"])
-        print(scaled_sources)
-        print(3333)
-
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
 
-        print(4444)
-        
-
+   
         e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
-        print(5555)
         if self.mode == "max":
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain
