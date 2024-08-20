@@ -163,10 +163,6 @@ class Wsj02MixDataset(Dataset):
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain
             sources_np_max = sources_np / gain
-            print("length")
-            print(len(mix_np_max))
-            print(len(sources_np_max))
-            print("length 1")
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "ref0": ref_audio, "emb0": e}
 
         if self.mode == "min":
