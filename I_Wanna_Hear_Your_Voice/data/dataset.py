@@ -139,7 +139,6 @@ class Wsj02MixDataset(Dataset):
 
         min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
-        # padded_sources = [p[:64000] for p in padded_sources]
         resampled_ref = resampled_ref[: 64000]
         
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
@@ -148,10 +147,6 @@ class Wsj02MixDataset(Dataset):
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
         scaled_sources = [s[: 64000] for s in scaled_sources]
-        # print(1111)
-        # print(len(scaled_sources[0]))
-        # print(len(scaled_sources[1]))
-        # print(2222)
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
 
@@ -163,12 +158,12 @@ class Wsj02MixDataset(Dataset):
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain
             sources_np_max = sources_np / gain
-            # print("length")
-            # print(len(mix_np_max))
-            # print(len(sources_np_max[0]))
-            # print(len(sources_np_max[1]))
-            # print(e.shape)
-            # print("length 1")
+            print("leng")
+            print(len(mix_np_max))
+            print(len(sources_np_max[0]))
+            print(len(sources_np_max[1]))
+            print(e.shape)
+            print("legn1")
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
         if self.mode == "min":
