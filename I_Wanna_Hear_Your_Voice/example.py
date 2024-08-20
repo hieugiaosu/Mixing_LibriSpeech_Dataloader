@@ -28,8 +28,8 @@ pipe = FilterBandTFPipeline(
         "lr":1e-3,
         "weight_decay":1.0e-2
     }, 
-    train_batch_size=8, 
-    val_batch_size=8, 
+    train_batch_size=4, 
+    val_batch_size=4, 
     epochs=200, 
     time_limit=3600*12 - 360, 
     device="cuda", 
