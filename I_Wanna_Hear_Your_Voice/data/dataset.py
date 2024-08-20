@@ -2,7 +2,6 @@ import torch
 import torchaudio
 from pandas import DataFrame
 from resemblyzer import VoiceEncoder
-VoiceEncoder = None
 from torch.utils.data import Dataset
 import os
 import soundfile as sf
