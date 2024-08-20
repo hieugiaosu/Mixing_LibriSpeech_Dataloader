@@ -7,7 +7,6 @@ from torch.utils.data import Dataset
 import os
 import soundfile as sf
 from scipy.signal import resample_poly
-from tqdm import tqdm
 from pathlib import Path
 import numpy as np
 FS_ORIG = 16000
