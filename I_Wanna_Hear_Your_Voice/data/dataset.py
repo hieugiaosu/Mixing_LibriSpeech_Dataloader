@@ -148,10 +148,10 @@ class Wsj02MixDataset(Dataset):
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
         scaled_sources = [s[: 64000] for s in scaled_sources]
-        print(1111)
-        print(len(scaled_sources[0]))
-        print(len(scaled_sources[1]))
-        print(2222)
+        # print(1111)
+        # print(len(scaled_sources[0]))
+        # print(len(scaled_sources[1]))
+        # print(2222)
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
 
