@@ -2,8 +2,12 @@ import pandas as pd
 import random
 import os
 import sys
-# sys.path.append("/home/tanio/nam3/NCKH/Mixing_LibriSpeech_Dataloader/I_Wanna_Hear_Your_Voice/data")
-# print(sys.path)
+from scipy.signal import resample_poly
+from resemblyzer import VoiceEncoder
+import soundfile as sf
+from pathlib import Path
+import numpy as np
+FS_ORIG = 16000
 class Wsj0Metadata():
     def __init__(self, 
                  filepath,
@@ -13,6 +17,10 @@ class Wsj0Metadata():
         self.filepath = filepath
         self.n_src = n_src
         self.output_path = output_path
+        self.root = "/kaggle/input/wsj0-2mix/"
+        self.embedding_model = VoiceEncoder(device = "cuda")
+        self.audio_length = 64000
+        
     def readDataFrame(self):
         header = [x for t in zip([f"s_{i}" for i in range(self.n_src)], [f"snr_{i}" for i in range(self.n_src)]) for x in t]
         mix_df = pd.read_csv(self.filepath, delimiter = " ", names = header, index_col = False)
@@ -35,8 +43,22 @@ class Wsj0Metadata():
         # Create the new snr_ref column
         mix_df['snr_ref'] = mix_df['snr_0'] 
         
+        #Create embedding column
+        def emb(ref_path):
+            ref_emb = sf.read(Path(self.root) / ref_path, dtype = "float32")[0]
+            ref_emb = resample_poly(ref_emb, 8000, 16000)
+            if len(ref_emb) < self.audio_length:
+                ref_emb = np.hstack((ref_emb, np.zeros(self.audio_length - len(ref_emb))))
+            else:
+                start_index = random.randint(0, len(ref_emb) - self.audio_length)
+                ref_emb = ref_emb[start_index: start_index + self.audio_length]
+            ref_emb = self.embedding_model.embed_utterance(ref_emb)
+            return ref_emb
+        
+        mix_df['ref_embedding'] = mix_df['ref_audio_0'].apply(emb)
+
         mix_df.to_csv(self.output_path, index = False)
 
 if __name__ == "__main__":
-    data = Wsj0Metadata("../metadata/mix_2_spk_tt.txt", "../metadata/mix_2_spk_tt.csv", 2)
+    data = Wsj0Metadata("../metadata/mix_2_spk_tr.txt", "../metadata/mix_2_spk_tr.csv", 2)
     data.createMetadata()
