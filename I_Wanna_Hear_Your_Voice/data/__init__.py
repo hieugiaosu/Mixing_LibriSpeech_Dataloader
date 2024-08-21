@@ -49,7 +49,7 @@ def getTrainAndValSetFromMetadataWSJ0(
         sample_rate=8000,
         using_cache = True,
         cache_size = 1,
-        device = 'cpu'
+        device = 'cuda'
         ):
     df = getDataFrameFromMetadata(path)
 
