@@ -1,7 +1,6 @@
 import torch
 import torchaudio
 from pandas import DataFrame
-from resemblyzer import VoiceEncoder
 from torch.utils.data import Dataset
 import os
 import soundfile as sf
@@ -58,7 +57,7 @@ class LibriSpeech2MixDataset(Dataset):
             self.file_source = CacheTensor(cache_size,torchaudio.load)
         if 'embedding' not in df.columns:
             self.use_encoder = True
-            self.embedding_model = VoiceEncoder(device = device)
+            # self.embedding_model = VoiceEncoder(device = device)
         else:
             self.use_encoder = False
     def __len__(self):
@@ -125,7 +124,7 @@ class Wsj02MixDataset(Dataset):
         self.audio_length = self.chunk_duration * FS_ORIG
         if 'ref_embedding' not in df.columns:
             self.use_encoder = True
-            self.embedding_model = VoiceEncoder(device = device)
+            # self.embedding_model = VoiceEncoder(device = device)
         else:
             self.use_encoder = False
     def __len__(self):
@@ -166,7 +165,6 @@ class Wsj02MixDataset(Dataset):
         # e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
         ref_embedding = eval(data['ref_embedding'])
-        print(len(ref_embedding))
         e = ref_embedding
         e = torch.tensor(e).float()
 
