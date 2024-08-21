@@ -8,6 +8,7 @@ import soundfile as sf
 from scipy.signal import resample_poly
 from pathlib import Path
 import numpy as np
+import random
 FS_ORIG = 16000
 class CacheTensor:
     def __init__(self,cacheSize:int,miss_handler) -> None:
@@ -137,16 +138,25 @@ class Wsj02MixDataset(Dataset):
         resampled_sources = [resample_poly(s, self.sample_rate, FS_ORIG) for s in sources]
         resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
 
-        min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
-        padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
-        resampled_ref = resampled_ref[: 64000]
+        def padding(sample):
+            if len(sample) < self.chunk_duration:
+                sample_padding = np.hstack(sample, np.zeros(self.chunk_duration - len(sample)))
+                return sample_padding
+            start_index = random.randint(0, len(sample) - self.chunk_duration)
+            sample_padding = sample[start_index: start_index + self.chunk_duration]
+            return sample_padding
+        
+        # min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
+        # padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
+        padded_sources = list(map(padding, resampled_sources))
+        resampled_ref = map(padding, resampled_ref)
         
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
         activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
         scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
-        scaled_sources = [s[: 64000] for s in scaled_sources]
+        
         sources_np = np.stack(scaled_sources, axis=0)
         mix_np = np.sum(sources_np, axis=0)
 
@@ -162,17 +172,16 @@ class Wsj02MixDataset(Dataset):
             print(len(mix_np_max))
             print(len(sources_np_max[0]))
             print(len(sources_np_max[1]))
-            print(e.shape)
-            print("legn1")
+            print("lenga")
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
-        if self.mode == "min":
-            sources_np = sources_np[:,:min_len]
-            mix_np = mix_np[:min_len]
-            gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
-            mix_np /= gain
-            sources_np /= gain
-            return {"mix": mix_np[:min_len], "src0": sources_np[0][:min_len], "src1": sources_np[1][:min_len], "ref0": ref_audio, "emb0": e}
+        # if self.mode == "min":
+        #     sources_np = sources_np[:,:min_len]
+        #     mix_np = mix_np[:min_len]
+        #     gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
+        #     mix_np /= gain
+        #     sources_np /= gain
+        #     return {"mix": mix_np[:min_len], "src0": sources_np[0][:min_len], "src1": sources_np[1][:min_len], "ref0": ref_audio, "emb0": e}
         # mix_waveform = torchaudio.functional.add_noise(first_waveform,second_waveform,torch.tensor(1))
   
     
