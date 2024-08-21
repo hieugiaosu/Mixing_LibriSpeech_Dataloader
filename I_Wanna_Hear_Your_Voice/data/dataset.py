@@ -142,7 +142,7 @@ class Wsj02MixDataset(Dataset):
 
         def padding(sample):
             if len(sample) < self.audio_length:
-                sample_padding = np.hstack(sample, np.zeros(self.audio_length - len(sample)))
+                sample_padding = np.hstack((sample, np.zeros(self.audio_length - len(sample))))
                 return sample_padding
             start_index = random.randint(0, len(sample) - self.audio_length)
             sample_padding = sample[start_index: start_index + self.audio_length]
