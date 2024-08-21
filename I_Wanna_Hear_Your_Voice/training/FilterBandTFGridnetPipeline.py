@@ -19,8 +19,8 @@ class FilterBandTFPipeline(TrainingPipeline):
                 "lr":1e-3,
                 "weight_decay":1.0e-2
             }, 
-            train_batch_size=12, 
-            val_batch_size=12, 
+            train_batch_size=8, 
+            val_batch_size=8, 
             epochs=200, 
             time_limit=86400, 
             device=None, 
