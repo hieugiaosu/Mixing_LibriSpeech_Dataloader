@@ -53,7 +53,7 @@ class Wsj0Metadata():
                 start_index = random.randint(0, len(ref_emb) - self.audio_length)
                 ref_emb = ref_emb[start_index: start_index + self.audio_length]
             ref_emb = self.embedding_model.embed_utterance(ref_emb)
-            return ref_emb
+            return ref_emb.tolist()
         
         mix_df['ref_embedding'] = mix_df['ref_audio_0'].apply(emb)
 
@@ -64,3 +64,5 @@ if __name__ == "__main__":
     data1.createMetadata()
     data2 = Wsj0Metadata("../metadata/mix_2_spk_tt.txt", "../metadata/mix_2_spk_tt.csv", 2)
     data2.createMetadata()
+    data3 = Wsj0Metadata("../metadata/mix_2_spk_tr.txt", "../metadata/mix_2_spk_tr.csv", 2)
+    data3.createMetadata()
