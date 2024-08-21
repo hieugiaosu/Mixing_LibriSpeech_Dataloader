@@ -2,19 +2,19 @@ from network.models import FilterBandTFGridnet, TargetSpeakerLOTH
 from data import getTrainAndValSetFromMetadata, KAGGLE_ROOT, getTrainAndValSetFromMetadataWSJ0
 from training.FilterBandTFGridnetPipeline import FilterBandTFPipeline
 import sys
-# train_ds, val_ds = getTrainAndValSetFromMetadata(
-#     "data/metadata/small-train-clean.csv",
-#     "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100",
-#     test_size = 0.1                                            
-#     )
-train_ds = getTrainAndValSetFromMetadataWSJ0(
-    "data/metadata/mix_2_spk_tr.csv",
-    KAGGLE_ROOT,
-)
-val_ds = getTrainAndValSetFromMetadataWSJ0(
-    "data/metadata/mix_2_spk_cv.csv",
-    KAGGLE_ROOT,
-)
+train_ds, val_ds = getTrainAndValSetFromMetadata(
+    "data/metadata/small-train-clean.csv",
+    "/kaggle/input/librispeech/train-clean-100/LibriSpeech/train-clean-100",
+    test_size = 0.1                                            
+    )
+# train_ds = getTrainAndValSetFromMetadataWSJ0(
+#     "data/metadata/mix_2_spk_tr.csv",
+#     KAGGLE_ROOT,
+# )
+# val_ds = getTrainAndValSetFromMetadataWSJ0(
+#     "data/metadata/mix_2_spk_cv.csv",
+#     KAGGLE_ROOT,
+# )
 # model = TargetSpeakerLOTH(n_layers=5)
 model = FilterBandTFGridnet(n_layers=5)
 
