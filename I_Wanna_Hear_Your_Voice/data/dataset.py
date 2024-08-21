@@ -151,7 +151,7 @@ class Wsj02MixDataset(Dataset):
         # min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         # padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
         padded_sources = list(map(padding, resampled_sources))
-        resampled_ref = map(padding, resampled_ref)
+        resampled_ref = padding(resampled_ref)
         
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
