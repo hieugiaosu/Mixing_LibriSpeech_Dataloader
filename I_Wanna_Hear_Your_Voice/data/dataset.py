@@ -135,10 +135,10 @@ class Wsj02MixDataset(Dataset):
         data = self.data.iloc[idx]
         sources = [sf.read(Path(self.root) / data[f"s_{i}"], dtype = "float32")[0] for i in range(self.n_srcs)]
         snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
-        ref_audio = sf.read(Path(self.root) / data["ref_audio_0"], dtype = "float32")[0]
+        # ref_audio = sf.read(Path(self.root) / data["ref_audio_0"], dtype = "float32")[0]
 
         resampled_sources = [resample_poly(s, self.sample_rate, FS_ORIG) for s in sources]
-        resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
+        # resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
 
         def padding(sample):
             if len(sample) < self.audio_length:
@@ -151,7 +151,7 @@ class Wsj02MixDataset(Dataset):
         # min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
         # padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
         padded_sources = list(map(padding, resampled_sources))
-        resampled_ref = padding(resampled_ref)
+        # resampled_ref = padding(resampled_ref)
         
         # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
@@ -163,8 +163,10 @@ class Wsj02MixDataset(Dataset):
         mix_np = np.sum(sources_np, axis=0)
 
    
-        e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
+        # e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
+        e = eval(data['embedding'])
+        e = torch.tensor(e).float()
 
         if self.mode == "max":
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
