@@ -165,9 +165,9 @@ class Wsj02MixDataset(Dataset):
    
         # e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
-        ref_embedding = data['ref_embedding'].split(" ")
+        ref_embedding = eval(data['ref_embedding'])
         print(len(ref_embedding))
-        e = eval(ref_embedding)
+        e = ref_embedding
         e = torch.tensor(e).float()
 
         if self.mode == "max":
