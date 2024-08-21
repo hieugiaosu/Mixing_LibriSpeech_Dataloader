@@ -20,7 +20,7 @@ class Wsj0Metadata():
         self.root = "/kaggle/input/wsj0-2mix/"
         self.embedding_model = VoiceEncoder(device = "cuda")
         self.audio_length = 64000
-        
+
     def readDataFrame(self):
         header = [x for t in zip([f"s_{i}" for i in range(self.n_src)], [f"snr_{i}" for i in range(self.n_src)]) for x in t]
         mix_df = pd.read_csv(self.filepath, delimiter = " ", names = header, index_col = False)
@@ -60,5 +60,7 @@ class Wsj0Metadata():
         mix_df.to_csv(self.output_path, index = False)
 
 if __name__ == "__main__":
-    data = Wsj0Metadata("../metadata/mix_2_spk_tr.txt", "../metadata/mix_2_spk_tr.csv", 2)
-    data.createMetadata()
+    data1 = Wsj0Metadata("../metadata/mix_2_spk_cv.txt", "../metadata/mix_2_spk_cv.csv", 2)
+    data1.createMetadata()
+    data2 = Wsj0Metadata("../metadata/mix_2_spk_tt.txt", "../metadata/mix_2_spk_tt.csv", 2)
+    data2.createMetadata()
