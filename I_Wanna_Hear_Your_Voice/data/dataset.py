@@ -121,8 +121,8 @@ class Wsj02MixDataset(Dataset):
         self.device = device
         self.n_srcs = n_srcs
         self.mode = mode
-        self.audio_length = self.chunk_duration * FS_ORIG
         self.chunk_duration = chunk_duration
+        self.audio_length = self.chunk_duration * FS_ORIG
         if 'embedding' not in df.columns:
             self.use_encoder = True
             self.embedding_model = VoiceEncoder(device = device)
