@@ -112,6 +112,7 @@ class Wsj02MixDataset(Dataset):
             device = 'cuda',
             mode = "max",
             n_srcs = 2,
+            chunk_duration = 4,
             ):
         super().__init__()
         self.data = df
@@ -120,7 +121,8 @@ class Wsj02MixDataset(Dataset):
         self.device = device
         self.n_srcs = n_srcs
         self.mode = mode
-
+        self.audio_length = self.chunk_duration * FS_ORIG
+        self.chunk_duration = chunk_duration
         if 'embedding' not in df.columns:
             self.use_encoder = True
             self.embedding_model = VoiceEncoder(device = device)
@@ -139,11 +141,11 @@ class Wsj02MixDataset(Dataset):
         resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
 
         def padding(sample):
-            if len(sample) < self.chunk_duration:
-                sample_padding = np.hstack(sample, np.zeros(self.chunk_duration - len(sample)))
+            if len(sample) < self.audio_length:
+                sample_padding = np.hstack(sample, np.zeros(self.audio_length - len(sample)))
                 return sample_padding
-            start_index = random.randint(0, len(sample) - self.chunk_duration)
-            sample_padding = sample[start_index: start_index + self.chunk_duration]
+            start_index = random.randint(0, len(sample) - self.audio_length)
+            sample_padding = sample[start_index: start_index + self.audio_length]
             return sample_padding
         
         # min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
