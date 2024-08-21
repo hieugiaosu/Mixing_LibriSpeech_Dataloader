@@ -123,7 +123,7 @@ class Wsj02MixDataset(Dataset):
         self.mode = mode
         self.chunk_duration = chunk_duration
         self.audio_length = self.chunk_duration * FS_ORIG
-        if 'embedding' not in df.columns:
+        if 'ref_embedding' not in df.columns:
             self.use_encoder = True
             self.embedding_model = VoiceEncoder(device = device)
         else:
@@ -165,7 +165,7 @@ class Wsj02MixDataset(Dataset):
    
         # e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
-        ref_embedding = data['ref_embedidng'].split(" ")
+        ref_embedding = data['ref_embedding'].split(" ")
         print(len(ref_embedding))
         e = eval(ref_embedding)
         e = torch.tensor(e).float()
