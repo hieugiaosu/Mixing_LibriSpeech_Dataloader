@@ -4,6 +4,7 @@ from pandas import DataFrame
 from torch.utils.data import Dataset
 import os
 import soundfile as sf
+from resemblyzer import VoiceEncoder
 from scipy.signal import resample_poly
 from pathlib import Path
 import numpy as np
@@ -55,11 +56,12 @@ class LibriSpeech2MixDataset(Dataset):
             self.file_source = torchaudio.load
         else: 
             self.file_source = CacheTensor(cache_size,torchaudio.load)
-        if 'embedding' not in df.columns:
-            self.use_encoder = True
-            # self.embedding_model = VoiceEncoder(device = device)
-        else:
-            self.use_encoder = False
+        self.use_encoder = True
+        # if 'embedding' not in df.columns:
+        #     self.use_encoder = True
+        #     self.embedding_model = VoiceEncoder(device = device)
+        # else:
+        #     self.use_encoder = False
     def __len__(self):
         return len(self.data)
     
