@@ -9,7 +9,7 @@ from scipy.signal import resample_poly
 from pathlib import Path
 import numpy as np
 import random
-FS_ORIG = 16000
+FS_ORIG = 8000
 class CacheTensor:
     def __init__(self,cacheSize:int,miss_handler) -> None:
         self.cacheSize = cacheSize
@@ -98,12 +98,6 @@ class LibriSpeech2MixDataset(Dataset):
         
 
         mix_waveform = torchaudio.functional.add_noise(first_waveform,second_waveform,torch.tensor(1))
-        print("leng")
-        print(mix_waveform.shape)
-        print(first_waveform.shape)
-        print(second_waveform.shape)
-        print(e.shape)
-        print("lengt")
         return {"mix":mix_waveform, "src0": first_waveform, "src1":second_waveform, "ref0":ref_waveform, "emb0": e}
     
 
@@ -198,6 +192,14 @@ class Wsj02MixDataset(Dataset):
             gain = torch.max(torch.tensor([1.0, torch.max(torch.abs(mix_tensor)), torch.max(torch.abs(sources_tensor))])) / 0.9
             mix_tensor_max = mix_tensor / gain
             sources_tensor_max = sources_tensor / gain
+            # mix_tensor_max = resampler(mix_tensor_max)
+            # sources_tensor_max = [resampler(s) for s in sources_tensor_max]
+            print("lengt")
+            print(mix_tensor_max.shape)
+            print(sources_tensor_max[0].shape)
+            print(sources_tensor_max[1].shape)
+            print(e.shape)
+            print("elng")
             return {"mix": mix_tensor_max, "src0": sources_tensor_max[0], "src1": sources_tensor_max[1], "emb0": e}
         # if self.mode == "max":
         #     gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
