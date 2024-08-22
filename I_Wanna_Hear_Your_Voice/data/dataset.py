@@ -189,9 +189,9 @@ class Wsj02MixDataset(Dataset):
 
 
         if self.mode == "max":
-            gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
-            mix_np_max = mix_np / gain
-            sources_np_max = sources_np / gain
+            gain = np.max([1., np.max(np.abs(mix_tensor)), np.max(np.abs(sources_tensor))]) / 0.9
+            mix_np_max = mix_tensor / gain
+            sources_np_max = sources_tensor / gain
            
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
