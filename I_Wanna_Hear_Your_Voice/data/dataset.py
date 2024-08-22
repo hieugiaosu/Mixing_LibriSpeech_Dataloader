@@ -187,13 +187,18 @@ class Wsj02MixDataset(Dataset):
         e = ref_embedding
         e = torch.tensor(e).float()
 
-
         if self.mode == "max":
-            gain = np.max([1., np.max(np.abs(mix_tensor)), np.max(np.abs(sources_tensor))]) / 0.9
-            mix_np_max = mix_tensor / gain
-            sources_np_max = sources_tensor / gain
+            gain = torch.max(torch.tensor([1.0, torch.max(torch.abs(mix_tensor)), torch.max(torch.abs(sources_tensor))])) / 0.9
+            mix_tensor_max = mix_tensor / gain
+            sources_tensor_max = sources_tensor / gain
+            return {"mix": mix_tensor_max, "src0": sources_tensor_max[0], "src1": sources_tensor_max[1], "emb0": e}
+        # if self.mode == "max":
+        #     gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
+        #     mix_np_max = mix_np / gain
+        #     sources_np_max = sources_np / gain
            
-            return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
+        #     return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
+
 
         # if self.mode == "min":
         #     sources_np = sources_np[:,:min_len]
