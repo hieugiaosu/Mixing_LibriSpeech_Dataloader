@@ -133,36 +133,53 @@ class Wsj02MixDataset(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
-        data = self.data.iloc[idx]
-        sources = [sf.read(Path(self.root) / data[f"s_{i}"], dtype = "float32")[0] for i in range(self.n_srcs)]
-        snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
-        # ref_audio = sf.read(Path(self.root) / data["ref_audio_0"], dtype = "float32")[0]
+        # data = self.data.iloc[idx]
+        # sources = [sf.read(Path(self.root) / data[f"s_{i}"], dtype = "float32")[0] for i in range(self.n_srcs)]
+        # snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
 
-        resampled_sources = [resample_poly(s, self.sample_rate, FS_ORIG) for s in sources]
-        # resampled_ref = resample_poly(ref_audio, self.sample_rate, FS_ORIG)
+        # resampled_sources = [resample_poly(s, self.sample_rate, FS_ORIG) for s in sources]
+
+        # def padding(sample):
+        #     if len(sample) < self.audio_length:
+        #         sample_padding = np.hstack((sample, np.zeros(self.audio_length - len(sample))))
+        #         return sample_padding
+        #     start_index = random.randint(0, len(sample) - self.audio_length)
+        #     sample_padding = sample[start_index: start_index + self.audio_length]
+        #     return sample_padding
+        
+        # padded_sources = list(map(padding, resampled_sources))
+        
+
+        # activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
+        # scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
+
+        
+        # sources_np = np.stack(scaled_sources, axis=0)
+        # mix_np = np.sum(sources_np, axis=0)
+
+        data = self.data.iloc[idx]
+
+# Load audio files using torchaudio.load
+        sources = [torchaudio.load(Path(self.root) / data[f"s_{i}"])[0].squeeze().float() for i in range(self.n_srcs)]
+        snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
+
+        # Resample using torchaudio
+        resampler = torchaudio.transforms.Resample(self.sample_rate, FS_ORIG)
+        resampled_sources = [resampler(s) for s in sources]
 
         def padding(sample):
-            if len(sample) < self.audio_length:
-                sample_padding = np.hstack((sample, np.zeros(self.audio_length - len(sample))))
-                return sample_padding
-            start_index = random.randint(0, len(sample) - self.audio_length)
-            sample_padding = sample[start_index: start_index + self.audio_length]
-            return sample_padding
-        
-        # min_len, max_len = min([len(s) for s in resampled_sources]), max([len(s) for s in resampled_sources])
-        # padded_sources = [np.hstack((s, np.zeros(max_len - len(s)))) for s in resampled_sources]
+            if sample.size(0) < self.audio_length:
+                return torch.nn.functional.pad(sample, (0, self.audio_length - sample.size(0)))
+            start_index = random.randint(0, sample.size(0) - self.audio_length)
+            return sample[start_index: start_index + self.audio_length]
+
         padded_sources = list(map(padding, resampled_sources))
-        # resampled_ref = padding(resampled_ref)
-        
-        # padded_ref = np.hstack((resampled_ref, np.zeros(max_len - len(resampled_ref))))
 
-        activlev_scales = [np.sqrt(np.mean(s**2)) for s in resampled_sources]
-        scaled_sources = [s / np.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
+        activlev_scales = [torch.sqrt(torch.mean(s**2)) for s in resampled_sources]
+        scaled_sources = [s / torch.sqrt(scale) * 10 ** (x/20) for s, scale, x in zip(padded_sources, activlev_scales, snrs)]
 
-        
-        sources_np = np.stack(scaled_sources, axis=0)
-        mix_np = np.sum(sources_np, axis=0)
-
+        sources_tensor = torch.stack(scaled_sources, dim=0)
+        mix_tensor = torch.sum(sources_tensor, dim=0)
    
         # e = torch.tensor(self.embedding_model.embed_utterance(resampled_ref)).float().cpu()
 
@@ -175,11 +192,7 @@ class Wsj02MixDataset(Dataset):
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain
             sources_np_max = sources_np / gain
-            ###Test
-            mix_np_max = torch.zeros_like(torch.from_numpy(mix_np_max))
-            sources_np_max[0] = torch.zeros_like(torch.from_numpy(sources_np_max[0]))
-            sources_np_max[1] = torch.zeros_like(torch.from_numpy(sources_np_max[1]))
-            e = torch.zeros_like(e)
+           
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
         # if self.mode == "min":
