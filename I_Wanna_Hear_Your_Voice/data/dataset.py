@@ -96,7 +96,14 @@ class LibriSpeech2MixDataset(Dataset):
             ref_waveform = torchaudio.functional.resample(ref_waveform,rate,self.sample_rate)
             second_waveform = torchaudio.functional.resample(second_waveform,rate,self.sample_rate)
         
+
         mix_waveform = torchaudio.functional.add_noise(first_waveform,second_waveform,torch.tensor(1))
+        print("leng")
+        print(mix_waveform.shape)
+        print(first_waveform.shape)
+        print(second_waveform.shape)
+        print(e.shape)
+        print("lengt")
         return {"mix":mix_waveform, "src0": first_waveform, "src1":second_waveform, "ref0":ref_waveform, "emb0": e}
     
 
