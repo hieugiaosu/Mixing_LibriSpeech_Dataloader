@@ -19,7 +19,7 @@ class Wsj0Metadata():
         self.output_path = output_path
         self.root = "/kaggle/input/wsj0-2mix/"
         self.embedding_model = VoiceEncoder(device = "cuda")
-        self.audio_length = 64000
+        self.audio_length = 32000
 
     def readDataFrame(self):
         header = [x for t in zip([f"s_{i}" for i in range(self.n_src)], [f"snr_{i}" for i in range(self.n_src)]) for x in t]
@@ -46,7 +46,7 @@ class Wsj0Metadata():
         #Create embedding column
         def emb(ref_path):
             ref_emb = sf.read(Path(self.root) / ref_path, dtype = "float32")[0]
-            ref_emb = resample_poly(ref_emb, 8000, 16000)
+            ref_emb = resample_poly(ref_emb, 64000, 8000)
             if len(ref_emb) < self.audio_length:
                 ref_emb = np.hstack((ref_emb, np.zeros(self.audio_length - len(ref_emb))))
             else:

@@ -194,12 +194,7 @@ class Wsj02MixDataset(Dataset):
             sources_tensor_max = sources_tensor / gain
             # mix_tensor_max = resampler(mix_tensor_max)
             # sources_tensor_max = [resampler(s) for s in sources_tensor_max]
-            print("lengt")
-            print(mix_tensor_max.shape)
-            print(sources_tensor_max[0].shape)
-            print(sources_tensor_max[1].shape)
-            print(e.shape)
-            print("elng")
+            
             return {"mix": mix_tensor_max, "src0": sources_tensor_max[0], "src1": sources_tensor_max[1], "emb0": e}
         # if self.mode == "max":
         #     gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
