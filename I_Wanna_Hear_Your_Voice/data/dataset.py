@@ -56,7 +56,8 @@ class LibriSpeech2MixDataset(Dataset):
             self.file_source = torchaudio.load
         else: 
             self.file_source = CacheTensor(cache_size,torchaudio.load)
-        self.use_encoder = True
+            
+        self.embedding_model = VoiceEncoder(device = device)
         # if 'embedding' not in df.columns:
         #     self.use_encoder = True
         #     self.embedding_model = VoiceEncoder(device = device)
