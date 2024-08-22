@@ -52,10 +52,11 @@ class LibriSpeech2MixDataset(Dataset):
         self.sample_rate = sample_rate
         self.root = root
         self.device = device
-        if not using_cache or cache_size == 1:
-            self.file_source = torchaudio.load
-        else: 
-            self.file_source = CacheTensor(cache_size,torchaudio.load)
+        self.file_source = torchaudio.load
+        # if not using_cache or cache_size == 1:
+        #     self.file_source = torchaudio.load
+        # else: 
+        #     self.file_source = CacheTensor(cache_size,torchaudio.load)
 
         self.embedding_model = VoiceEncoder(device = device)
         self.use_encoder = True
