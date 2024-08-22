@@ -14,7 +14,7 @@ train_ds, val_ds = getTrainAndValSetFromMetadata(
 # val_ds = getTrainAndValSetFromMetadataWSJ0(
 #     "data/metadata/mix_2_spk_cv.csv",
 #     KAGGLE_ROOT,
-)
+# )
 # model = TargetSpeakerLOTH(n_layers=5)
 model = FilterBandTFGridnet(n_layers=5)
 
