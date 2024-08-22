@@ -164,7 +164,7 @@ class Wsj02MixDataset(Dataset):
         snrs = [data[f"snr_{i}"] for i in range(self.n_srcs)]
 
         # Resample using torchaudio
-        resampler = torchaudio.transforms.Resample(32000, FS_ORIG)
+        resampler = torchaudio.transforms.Resample(32000, 8000)
         resampled_sources = [resampler(s) for s in sources]
 
         def padding(sample):
