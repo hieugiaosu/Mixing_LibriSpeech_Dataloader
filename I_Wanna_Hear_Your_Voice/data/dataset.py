@@ -52,19 +52,16 @@ class LibriSpeech2MixDataset(Dataset):
         self.sample_rate = sample_rate
         self.root = root
         self.device = device
-        self.file_source = torchaudio.load
-        # if not using_cache or cache_size == 1:
-        #     self.file_source = torchaudio.load
-        # else: 
-        #     self.file_source = CacheTensor(cache_size,torchaudio.load)
+        if not using_cache or cache_size == 1:
+            self.file_source = torchaudio.load
+        else: 
+            self.file_source = CacheTensor(cache_size,torchaudio.load)
 
-        self.embedding_model = VoiceEncoder(device = device)
-        self.use_encoder = True
-        # if 'embedding' not in df.columns:
-        #     self.use_encoder = True
-        #     self.embedding_model = VoiceEncoder(device = device)
-        # else:
-        #     self.use_encoder = False
+        if 'embedding' not in df.columns:
+            self.use_encoder = True
+            self.embedding_model = VoiceEncoder(device = device)
+        else:
+            self.use_encoder = False
     def __len__(self):
         return len(self.data)
     
@@ -129,7 +126,7 @@ class Wsj02MixDataset(Dataset):
         self.audio_length = self.chunk_duration * FS_ORIG
         if 'ref_embedding' not in df.columns:
             self.use_encoder = True
-            # self.embedding_model = VoiceEncoder(device = device)
+            self.embedding_model = VoiceEncoder(device = device)
         else:
             self.use_encoder = False
     def __len__(self):
@@ -173,10 +170,16 @@ class Wsj02MixDataset(Dataset):
         e = ref_embedding
         e = torch.tensor(e).float()
 
+
         if self.mode == "max":
             gain = np.max([1., np.max(np.abs(mix_np)), np.max(np.abs(sources_np))]) / 0.9
             mix_np_max = mix_np / gain
             sources_np_max = sources_np / gain
+            ###Test
+            mix_np_max = torch.zeros_like(mix_np_max)
+            sources_np_max[0] = torch.zeros_like(sources_np_max[0])
+            sources_np_max[1] = torch.zeros_like(sources_np_max[1])
+            e = torch.zeros_like(e)
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
         # if self.mode == "min":
