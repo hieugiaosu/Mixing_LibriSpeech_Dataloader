@@ -176,9 +176,9 @@ class Wsj02MixDataset(Dataset):
             mix_np_max = mix_np / gain
             sources_np_max = sources_np / gain
             ###Test
-            mix_np_max = torch.zeros_like(mix_np_max)
-            sources_np_max[0] = torch.zeros_like(sources_np_max[0])
-            sources_np_max[1] = torch.zeros_like(sources_np_max[1])
+            mix_np_max = torch.zeros_like(torch.from_numpy(mix_np_max))
+            sources_np_max[0] = torch.zeros_like(torch.from_numpy(sources_np_max[0]))
+            sources_np_max[1] = torch.zeros_like(torch.from_numpy(sources_np_max[1]))
             e = torch.zeros_like(e)
             return {"mix": mix_np_max, "src0": sources_np_max[0], "src1": sources_np_max[1], "emb0": e}
 
