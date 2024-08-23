@@ -1,1 +1,1 @@
-from .FilterBandTFGridnetPipeline import FilterBandTFPipeline
+from .FilterBandTFGridnetPipeline import FilterBandTFPipeline, FilterBandTFPipelineWithWham

@@ -3,6 +3,7 @@ import torchaudio
 import numpy as np
 import pandas as pd
 from .cluster import Cluster
+from einops import repeat
 
 class WhamNoiseAugmentation:
     def __init__(
@@ -41,6 +42,14 @@ class WhamNoiseAugmentation:
         noise = self.get_noise()
         snr = torch.tensor(np.random.uniform(*self.noise_snr_range))
         return torchaudio.functional.add_noise(audio, noise, snr)
+    
+    def add_noise_batch(self,audio):
+        b = audio.shape[0]
+        snr = torch.tensor(np.random.uniform(*self.noise_snr_range,size=b),device=audio.device)
+        noise = self.get_noise()
+        noise = repeat(noise,'n -> b n',b=b)
+        return torchaudio.functional.add_noise(audio, noise, snr)
+
     
 class LibriSpeechNoise:
     def __init__(
