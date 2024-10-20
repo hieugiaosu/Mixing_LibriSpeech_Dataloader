@@ -8,7 +8,7 @@ import time
 import gc
 from torch.utils.data import DataLoader
 
-class TFGridNetSE(TrainingPipeline):
+class TFGridNetSEPipeLine(TrainingPipeline):
     def __init__(
             self, 
             model: Module, 
