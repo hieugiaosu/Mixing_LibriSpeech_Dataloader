@@ -58,10 +58,10 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             self.optimizer.zero_grad()
             mix = data['mix'].to(self.device)
             src0 = data['src0'].to(self.device)
-            aux = data['aux'].to(self.device)
+            auxs = data['auxs'].to(self.device)
             num_batch += 1
             with autocast():  # Use autocast for mixed precision
-                yHat, speakers_pred = self.model(mix, aux)
+                yHat, speakers_pred = self.model(mix, auxs)
                 si_sdr_loss = self.si_sdr_fn(yHat,src0)
                 ce_loss = self.ce_loss(speakers_pred, data['speaker_id'])
                 loss = si_sdr_loss + 0.5*ce_loss
@@ -77,10 +77,10 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             tot_loss += loss.cpu().detach().item()
             if epoch <= self.warm_up:
                 print(f"--------------batch:{num_batch}/{total_batch}---------loss:{loss.cpu().detach().item()}----------")
-                del mix, src0, yHat, loss, aux
+                del mix, src0, yHat, loss, auxs
             else:
                 print(f"--------------batch:{num_batch}/{total_batch}---------loss:{loss.cpu().detach().item()}|si-sdr:{si_sdr.cpu().detach().item()}----------")
-                del mix, src0, yHat, loss, si_sdr, mix_constraint, aux
+                del mix, src0, yHat, loss, si_sdr, mix_constraint, auxs
             torch.cuda.empty_cache()
             gc.collect()
             if time.time() - start_time > self.time_limit:
@@ -99,13 +99,13 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             for data in self.val_loader:
                 mix = data['mix'].to(self.device)
                 src0 = data['src0'].to(self.device)
-                aux = data['aux'].to(self.device)
+                auxs = data['auxs'].to(self.device)
                 num_batch += 1
                 with autocast():  # Use autocast for mixed precision
-                    yHat = self.model(mix, aux)
+                    yHat = self.model(mix, auxs)
                     loss = self.si_sdr_fn(yHat, src0)
                 tot_loss += loss.cpu().detach().item()
-                del mix, src0, yHat, loss, aux
+                del mix, src0, yHat, loss, auxs
                 torch.cuda.empty_cache()
                 gc.collect()
         return tot_loss / num_batch, num_batch

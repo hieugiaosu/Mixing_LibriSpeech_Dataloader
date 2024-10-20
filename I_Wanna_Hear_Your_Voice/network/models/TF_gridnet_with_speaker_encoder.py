@@ -88,21 +88,21 @@ class TFGridNetSE(nn.Module):
             )
         
         self.n_layers = n_layers
-    def forward(self, mix, aux):
+    def forward(self, mix, auxs):
         """
         Forward
         Args:
             mix (torch.Tensor): [B, -1]
             aux (torch.Tensor): [B, -1]
         """
-        audio_length = input.shape[-1]
-        aux_length = aux.shape[0]
+        audio_length = mix.shape[-1]
+        aux_length = auxs.shape[0]
 
         if mix.dim() == 2:
             x = mix.unsqueeze(1)
 
-        if aux.dim() == 2:
-            a = aux.unsqueeze(1)
+        if auxs.dim() == 2:
+            a = auxs.unsqueeze(1)
 
         x, std = self.input_normalize(x)
 
