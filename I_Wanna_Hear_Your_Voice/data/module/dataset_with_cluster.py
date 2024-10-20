@@ -54,7 +54,7 @@ class TrainDatasetWithCluster(Dataset):
             mix_16k = torchaudio.functional.resample(mix,8000,16000)
             e_mix = self.embedding_model(mix_16k)
             e = torch.cat([e,e_mix],dim=0)
-        return {"mix":mix,"src0":audio,"emb0":e}
+        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': speaker, 'aux': ref}
     
 class ValDatasetWithCluster(Dataset):
     def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000, emb_mix = False) -> None:
@@ -99,7 +99,7 @@ class ValDatasetWithCluster(Dataset):
             mix_16k = torchaudio.functional.resample(mix,8000,16000)
             e_mix = self.embedding_model(mix_16k)
             e = torch.cat([e,e_mix],dim=0)
-        return {"mix":mix,"src0":audio,"emb0":e}
+        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': speaker_id, 'aux': ref_audio}
 
 class TrainDataLoaderWithCluster(DataLoader):
     def __iter__(self):
