@@ -30,8 +30,7 @@ class TFGridNetSE(nn.Module):
             emb_hs=1,
             activation="PReLU",
             eps=1.0e-5,
-            conditional_dim = 256,
-            num_spks = 101
+            num_spks = 126
             ):
         super().__init__()
         n_freqs = n_fft//2 + 1
@@ -74,11 +73,10 @@ class TFGridNetSE(nn.Module):
             ]
         )
 
-        self.filter_gen = nn.Linear(conditional_dim,emb_dim*n_freqs)
-        self.bias_gen = nn.Linear(conditional_dim,emb_dim*n_freqs)
+        
 
 
-        self.aux_encoder = AuxEncoder(emb_dim, num_spks)
+        self.aux_encoder = AuxEncoder(emb_dim, num_spks, n_freqs)
 
         self.deconv = TFGridnetDeconv(
             emb_dim=emb_dim,
@@ -119,8 +117,8 @@ class TFGridNetSE(nn.Module):
         n_freqs = x.shape[-2]
         
         a, speaker_pred = self.aux_encoder(a, aux_length)
-        f = rearrange(f,"b (d q) -> b d q 1", q = n_freqs)
-        b = rearrange(b,"b (d q) -> b d q 1", q = n_freqs)
+        f = rearrange(a,"b (d q) -> b d q 1", q = n_freqs)
+        b = rearrange(a,"b (d q) -> b d q 1", q = n_freqs)
 
         for i in range(self.n_layers):
 
@@ -141,16 +139,17 @@ class TFGridNetSE(nn.Module):
 class AuxEncoder(nn.Module):
     def __init__(self,
                  emb_dim,
-                 num_spks):
+                 num_spks,
+                 n_freqs):
         super(AuxEncoder, self).__init__()
         k1, k2 = (1, 3), (1, 3)
         self.d_feat = emb_dim
-
+        self.n_freqs = n_freqs
         self.aux_enc = nn.ModuleList([EnUnetModule(emb_dim, emb_dim, (1, 5), k2, scale=4),
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=3),
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=2),
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=1)])
-        self.out_conv = nn.Linear(emb_dim, emb_dim)
+        self.out_conv = nn.Linear(emb_dim, emb_dim * n_freqs)
         self.speaker = nn.Linear(emb_dim, num_spks)
 
     def forward(self,
