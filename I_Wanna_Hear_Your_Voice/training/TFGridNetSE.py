@@ -59,11 +59,12 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             mix = data['mix'].to(self.device)
             src0 = data['src0'].to(self.device)
             auxs = data['auxs'].to(self.device)
+            speaker_id = data['speaker_id'].to(self.device)
             num_batch += 1
             with autocast():  # Use autocast for mixed precision
                 yHat, speakers_pred = self.model(mix, auxs)
                 si_sdr_loss = self.si_sdr_fn(yHat,src0)
-                ce_loss = self.ce_loss(speakers_pred, data['speaker_id'])
+                ce_loss = self.ce_loss(speakers_pred, speaker_id)
                 loss = si_sdr_loss + 0.5*ce_loss
                 
             self.scaler.scale(loss).backward()
