@@ -114,6 +114,7 @@ class TFGridNetSE(nn.Module):
 
         x = self.dimension_embedding(x) #[B, -1, F, T]
         a = self.dimension_embedding(a)
+        
         n_freqs = x.shape[-2]
         
         a, speaker_pred = self.aux_encoder(a, aux_length)
@@ -254,7 +255,7 @@ class Deconv2dUnit(nn.Module):
         self.k = k
         self.c = c
         self.expend_scale = expend_scale
-        self.deconv = nn.Sequential(nn.ConvTranspose2d(c * expend_scale, c, k, (1, 2)),
+        self.deconv = nn.Sequential(nn.ConvTranspose2d(c * expend_scale, c, k, (1, 2), padding = (0,1)),
                                     nn.BatchNorm2d(c),
                                     nn.PReLU(c))
 
