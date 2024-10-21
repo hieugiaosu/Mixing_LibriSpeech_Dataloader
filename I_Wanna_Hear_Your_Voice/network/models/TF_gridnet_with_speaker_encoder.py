@@ -5,9 +5,10 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 from einops import rearrange
-from ..modules.input_tranformation import STFTInput, RMSNormalizeInput
-from ..modules.output_transformation import WaveGeneratorByISTFT, RMSDenormalizeOutput
-from ..modules.tf_gridnet_modules import *
+from network.modules.input_tranformation import STFTInput, RMSNormalizeInput
+from network.modules.output_transformation import WaveGeneratorByISTFT, RMSDenormalizeOutput
+from network.modules.tf_gridnet_modules import *
+from network.modules.gate_module import BandFilterGate
 
 class TFGridNetSE(nn.Module):
     def __init__(
@@ -47,6 +48,12 @@ class TFGridNetSE(nn.Module):
             win_length=n_fft,
             hop_length=hop_length,
             window=window
+        )
+        self.gates = nn.ModuleList(
+            [
+                BandFilterGate(emb_dim,n_freqs)
+                for _ in range(n_layers)
+            ]
         )
 
         self.output_denormalize = RMSDenormalizeOutput()
@@ -93,11 +100,11 @@ class TFGridNetSE(nn.Module):
         Forward
         Args:
             mix (torch.Tensor): [B, -1]
-            aux (torch.Tensor): [B, -1]
+            auxs (torch.Tensor): [B, -1]
         """
         audio_length = mix.shape[-1]
-        aux_length = auxs.shape[0]
-
+        aux_length = torch.tensor(auxs.shape[0])
+        
         if mix.dim() == 2:
             x = mix.unsqueeze(1)
 
@@ -115,6 +122,7 @@ class TFGridNetSE(nn.Module):
         x = self.dimension_embedding(x) #[B, -1, F, T]
         a = self.dimension_embedding(a)
         
+        a = a.transpose(2,3)
         n_freqs = x.shape[-2]
         
         a, speaker_pred = self.aux_encoder(a, aux_length)
@@ -141,7 +149,7 @@ class AuxEncoder(nn.Module):
     def __init__(self,
                  emb_dim,
                  num_spks,
-                 n_freqs):
+                n_freqs):
         super(AuxEncoder, self).__init__()
         k1, k2 = (1, 3), (1, 3)
         self.d_feat = emb_dim
@@ -150,23 +158,56 @@ class AuxEncoder(nn.Module):
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=3),
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=2),
                                       EnUnetModule(emb_dim, emb_dim, k1, k2, scale=1)])
-        self.out_conv = nn.Linear(emb_dim, emb_dim * n_freqs)
+        self.out_conv = nn.Linear(emb_dim, emb_dim * self.n_freqs)
         self.speaker = nn.Linear(emb_dim, num_spks)
 
     def forward(self,
                 auxs: torch.Tensor,
                 aux_lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         aux_lengths = (((aux_lengths // 3) // 3) // 3) // 3
-
+        
         for i in range(len(self.aux_enc)):
             auxs = self.aux_enc[i](auxs)  # [B, C, T, F]
+        
+        auxs = torch.stack([torch.mean(aux, dim = (1,2)) for aux in auxs], dim = 0)  # [B, C]
+        
+        auxs_out = self.out_conv(auxs)
+        
+        return auxs_out, self.speaker(auxs)
 
-        auxs = torch.stack([torch.mean(
-            aux[:, :aux_length, :], dim=(1, 2)) for aux, aux_length in zip(auxs, aux_lengths)], dim=0)  # [B, C]
-        auxs = self.out_conv(auxs)
 
-        return auxs, self.speaker(auxs)
-    
+class FusionModule(nn.Module):
+    def __init__(self,
+                 emb_dim,
+                 nhead=4,
+                 dropout=0.1):
+        super(FusionModule, self).__init__()
+        self.nhead = nhead
+        self.dropout = dropout
+        param_size = [1, 1, emb_dim]
+
+        self.attn = nn.MultiheadAttention(emb_dim,
+                                          num_heads=nhead,
+                                          dropout=dropout,
+                                          batch_first=True)
+        self.fusion = nn.Conv2d(emb_dim * 2, emb_dim, kernel_size=1)
+        self.alpha = Parameter(torch.Tensor(*param_size).to(torch.float32))
+
+        nn.init.zeros_(self.alpha)
+
+    def forward(self,
+                aux: torch.Tensor,
+                esti: torch.Tensor) -> torch.Tensor:
+        aux = aux.unsqueeze(1)  # [B, 1, C]
+        flatten_esti = esti.flatten(start_dim=2).transpose(1, 2)  # [B, T*F, C]
+        aux_adapt = self.attn(aux, flatten_esti, flatten_esti, need_weights=False)[0]
+        aux = aux + self.alpha * aux_adapt  # [B, 1, C]
+
+        aux = aux.unsqueeze(-1).transpose(1, 2).expand_as(esti)
+        esti = self.fusion(torch.cat((esti, aux), dim=1))  # [B, C, T, F]
+
+        return esti
+
 
 class EnUnetModule(nn.Module):
     def __init__(self,
@@ -205,7 +246,7 @@ class EnUnetModule(nn.Module):
         x_resi = x_resi + x
 
         return self.out_pool(x_resi)
-    
+
 
 class GateConv2d(nn.Module):
     def __init__(self,
@@ -246,6 +287,7 @@ class Conv2dUnit(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
+
 class Deconv2dUnit(nn.Module):
     def __init__(self,
                  k: tuple,
@@ -255,7 +297,7 @@ class Deconv2dUnit(nn.Module):
         self.k = k
         self.c = c
         self.expend_scale = expend_scale
-        self.deconv = nn.Sequential(nn.ConvTranspose2d(c * expend_scale, c, k, (1, 2), padding = (0,1)),
+        self.deconv = nn.Sequential(nn.ConvTranspose2d(c * expend_scale, c, k, (1, 2)),
                                     nn.BatchNorm2d(c),
                                     nn.PReLU(c))
 
