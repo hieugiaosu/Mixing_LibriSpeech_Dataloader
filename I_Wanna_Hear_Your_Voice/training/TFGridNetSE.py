@@ -1,5 +1,5 @@
 from torch.nn.modules import Module
-from .utils import TrainingPipeline
+from training.utils import TrainingPipeline
 from criterion import SingleSrcNegSDRScaledEst,Mixture_constraint_loss
 
 from torch.cuda.amp import GradScaler, autocast
@@ -64,10 +64,6 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             with autocast():  # Use autocast for mixed precision
                 yHat, speakers_pred = self.model(mix, auxs)
                 si_sdr_loss = self.si_sdr_fn(yHat,src0)
-                print(speakers_pred)
-                print(speaker_id)
-                print(speakers_pred.shape)
-                print(speaker_id.shape)
                 ce_loss = self.ce_loss(speakers_pred, speaker_id)
                 loss = si_sdr_loss + 0.5*ce_loss
                 

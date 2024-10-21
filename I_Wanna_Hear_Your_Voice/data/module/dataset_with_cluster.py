@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset, DataLoader
-from .cluster import Cluster
+from data.module.cluster import Cluster
 from typing import List
 import torchaudio
 import numpy as np
@@ -20,9 +20,11 @@ class TrainDatasetWithCluster(Dataset):
         self.emb_mix = emb_mix        
 
     def reset(self):
+        self.all_speakers = []
         for i in range(len(self.clusters)):
             self.clusters[i].reset(self.num_speaker_per_cluster,self.log)
             self.cluster_size[i+1] = len(self.clusters[i]) + self.cluster_size[i]
+            self.all_speakers.extend(self.clusters[i].chosen_speakers)
 
     def __len__(self): return self.cluster_size[-1]
 
@@ -54,7 +56,7 @@ class TrainDatasetWithCluster(Dataset):
             mix_16k = torchaudio.functional.resample(mix,8000,16000)
             e_mix = self.embedding_model(mix_16k)
             e = torch.cat([e,e_mix],dim=0)
-        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': speaker, 'auxs': ref}
+        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': self.all_speakers.index(speaker), 'auxs': ref}
     
 class ValDatasetWithCluster(Dataset):
     def __init__(self,clusters:List[Cluster], embedding_model,augmentation = None,num_speaker_per_cluster:int=6, sampling_rate = 8000, emb_mix = False) -> None:
@@ -99,7 +101,7 @@ class ValDatasetWithCluster(Dataset):
             mix_16k = torchaudio.functional.resample(mix,8000,16000)
             e_mix = self.embedding_model(mix_16k)
             e = torch.cat([e,e_mix],dim=0)
-        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': speaker_id, 'auxs': ref_audio}
+        return {"mix":mix,"src0":audio,"emb0":e, 'speaker_id': self.all_speakers.index(speaker_id), 'auxs': ref_audio}
 
 class TrainDataLoaderWithCluster(DataLoader):
     def __iter__(self):
