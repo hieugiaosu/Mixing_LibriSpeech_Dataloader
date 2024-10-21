@@ -77,7 +77,7 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             self.scaler.update()
             tot_loss += loss.cpu().detach().item()
             print(f"--------------batch:{num_batch}/{total_batch}---------loss:{loss.cpu().detach().item()}|si-sdr:{si_sdr_loss.cpu().detach().item()}----------")
-            del mix, src0, yHat, loss, si_sdr, mix_constraint, auxs
+            del mix, src0, yHat, loss, si_sdr_loss, mix_constraint, auxs
             torch.cuda.empty_cache()
             gc.collect()
             if time.time() - start_time > self.time_limit:
