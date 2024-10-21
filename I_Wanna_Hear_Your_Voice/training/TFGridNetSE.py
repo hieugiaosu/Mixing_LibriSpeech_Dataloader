@@ -76,8 +76,8 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             self.scaler.step(self.optimizer)
             self.scaler.update()
             tot_loss += loss.cpu().detach().item()
-            print(f"--------------batch:{num_batch}/{total_batch}---------loss:{loss.cpu().detach().item()}|si-sdr:{si_sdr_loss.cpu().detach().item()}----------")
-            del mix, src0, yHat, loss, si_sdr_loss, mix_constraint, auxs
+            print(f"--------------batch:{num_batch}/{total_batch}---------loss:{loss.cpu().detach().item()}|si-sdr:{si_sdr_loss.cpu().detach().item()}----------|ce-loss: {ce_loss.cpu().detach().item()}")
+            del mix, src0, yHat, loss, si_sdr_loss, ce_loss, auxs, speaker_id
             torch.cuda.empty_cache()
             gc.collect()
             if time.time() - start_time > self.time_limit:
@@ -97,12 +97,15 @@ class TFGridNetSEPipeLine(TrainingPipeline):
                 mix = data['mix'].to(self.device)
                 src0 = data['src0'].to(self.device)
                 auxs = data['auxs'].to(self.device)
+                speaker_id = data['speaker_id'].to(self.device)
                 num_batch += 1
                 with autocast():  # Use autocast for mixed precision
-                    yHat = self.model(mix, auxs)
-                    loss = self.si_sdr_fn(yHat, src0)
+                    yHat, speakers_pred = self.model(mix, auxs)
+                    si_sdr_loss = self.si_sdr_fn(yHat,src0)
+                    ce_loss = self.ce_loss(speakers_pred, speaker_id)
+                    loss = si_sdr_loss + 0.5*ce_loss
                 tot_loss += loss.cpu().detach().item()
-                del mix, src0, yHat, loss, auxs
+                del mix, src0, yHat, loss, si_sdr_loss, ce_loss, auxs, speaker_id
                 torch.cuda.empty_cache()
                 gc.collect()
         return tot_loss / num_batch, num_batch
