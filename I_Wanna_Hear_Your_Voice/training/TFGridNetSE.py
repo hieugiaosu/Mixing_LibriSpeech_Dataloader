@@ -93,26 +93,22 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             self.model.module.eval()
         else:
             self.model.eval()
-        tot_loss, total_sisdr_loss, total_ce_loss, num_batch = 0, 0, 0, 0
+        tot_loss, num_batch = 0, 0
         with torch.no_grad():
             for data in self.val_loader:
                 mix = data['mix'].to(self.device)
                 src0 = data['src0'].to(self.device)
                 auxs = data['auxs'].to(self.device)
-                speaker_id = data['speaker_id'].to(self.device)
                 num_batch += 1
                 with autocast():  # Use autocast for mixed precision
                     yHat, speakers_pred = self.model(mix, auxs)
-                    si_sdr_loss = self.si_sdr_fn(yHat,src0)
-                    ce_loss = self.ce_loss(speakers_pred, speaker_id)
-                    loss = si_sdr_loss + 0.5*ce_loss
+                    loss = self.si_sdr_fn(yHat,src0)
+                    
                 tot_loss += loss.cpu().detach().item()
-                total_ce_loss += ce_loss.cpu().detach().item()
-                total_sisdr_loss += si_sdr_loss.cpu().detach().item()
-                del mix, src0, yHat, loss, si_sdr_loss, ce_loss, auxs, speaker_id
+                del mix, src0, yHat, loss, auxs
                 torch.cuda.empty_cache()
                 gc.collect()
-        return tot_loss / num_batch, num_batch, total_sisdr_loss / num_batch, total_ce_loss / num_batch
+        return tot_loss / num_batch, num_batch
     
     def train(self,initial_loss = 40):
         best_loss = initial_loss
@@ -125,9 +121,9 @@ class TFGridNetSEPipeLine(TrainingPipeline):
             print(f"[TRAIN] Loss(time/mini-batch) \n - Epoch {epoch:2d}: Loss = {train_loss:.4f} | sisdr = {train_sisdr_loss:.4f} dB | ce = {train_ce_loss:.4f}| Speed = ({train_end_time - train_start_time:.2f}s/{train_num_batch:d})")
             if epoch % self.checkpoint_rate == 0 and epoch >= self.checkpoint_from_epoch:
                 valid_start_time = time.time()
-                val_loss, valid_num_batch, valid_sisdr_loss, valid_ce_loss = self.validate_iter()
+                val_loss, valid_num_batch = self.validate_iter()
                 valid_end_time = time.time()
-                print(f"[VALID] Loss(time/mini-batch) \n - Epoch {epoch:2d}: Loss = {val_loss:.4f} | sisdr = {valid_sisdr_loss:.4f} dB | ce = {valid_ce_loss:.4f} | Speed = ({valid_end_time - valid_start_time:.2f}s/{valid_num_batch:d})")
+                print(f"[VALID] Loss(time/mini-batch) \n - Epoch {epoch:2d}: Loss = {val_loss:.4f} db | Speed = ({valid_end_time - valid_start_time:.2f}s/{valid_num_batch:d})")
                 if val_loss < best_loss:
                     self.checkpoint()
                     count = 0
