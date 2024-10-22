@@ -68,10 +68,10 @@ class ValDatasetWithCluster(Dataset):
         self.embedding_model = embedding_model
         self.sampling_rate = sampling_rate
         self.augmentation = augmentation
-
+        self.all_speakers = []
         for i in range(len(self.clusters)):
             self.cluster_size[i+1] = self.clusters[i].len_val_set() + self.cluster_size[i]
-        
+            self.all_speakers.extend(self.clusters[i].chosen_speakers)
         self.emb_mix = emb_mix
         
     def __len__(self): return self.cluster_size[-1]
